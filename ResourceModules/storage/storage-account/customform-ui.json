@@ -1,0 +1,863 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2021-09-09/uiFormDefinition.schema.json",
+    "view": {
+        "kind": "Form",
+        "properties": {
+            "title": "Create a storage account",
+            "steps": [
+                {
+                    "name": "basics",
+                    "label": "Basics",
+                    "elements": [
+                        {
+                            "name": "resourceScope",
+                            "type": "Microsoft.Common.ResourceScope",
+							"instanceDetailsLabel": "Resource Group Details",
+                            "location": {
+                                "resourceTypes": [
+                                    "Microsoft.Resources/resourceGroups"
+                                ]
+                            }
+                        },
+						{
+							"name": "locationsApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/locations?api-version=2020-01-01')]"
+							}
+						},
+						{
+                            "name": "storageApi",
+                            "type": "Microsoft.Solutions.ArmApiControl",
+                            "request": {
+                                "method": "GET",
+                                "path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
+                            }
+                        },
+						{
+							"name": "name_checkNameAvailability",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "POST",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Storage/checkNameAvailability?api-version=2016-01-01')]",
+								"body": {
+									"name": "[steps('basics').storageAccountDetails.name]",
+									"type": "Microsoft.Storage/storageAccounts"
+								}
+							}
+						},
+						{
+							"name": "name_rePUT",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('basics').storageAccountDetails.name,'?api-version=2016-01-01')]",
+								"body": {}
+							}
+						},
+						{
+							"name": "storageAccountDetails",
+							"type": "Microsoft.Common.Section",
+							"label": "Storage Account Details",
+							"elements": [
+								{
+									"name": "name",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Name",
+									"defaultValue": "",
+									"toolTip": "Required. Name of the Storage Account.",
+									"constraints": {
+										"required": true,
+										"validations": [
+											{
+												"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists'))]",
+												"message": "[steps('basics').name_checkNameAvailability.message]"
+											},
+											{
+												"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_rePUT.id,concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('basics').storageAccountDetails.name)),not(equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists')))]",
+												"message": "[steps('basics').name_checkNameAvailability.message]"
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "performance",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Performance",
+									"defaultValue": "Standard: Recommended for most scenarios (general-purpose v2 account)",
+									"toolTip": "Determine whether you want to have premium performance for block blobs, file shares, or page blobs in your storage account.",
+									"constraints": {
+										"allowedValues": [
+										{
+											"label": "Standard: Recommended for most scenarios (general-purpose v2 account)",
+											"value": "Standard"
+										},
+										{
+											"label": "Premium: Recommended for scenarios that require low latency.",
+											"value": "Premium"
+										}
+										],
+										"required": false
+									},
+									"visible": true
+								},
+								{
+									"name": "premiumAccountType",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Premium account type",
+									"placeholder": "",
+									"defaultValue": "Page blobs",
+									"toolTip": "Choose an account type that matches your storage needs and optimizes your cost.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Block blobs",
+												"value": "BlockblobStorage"
+											},
+											{
+												"label": "File shares",
+												"value": "FileStorage"
+											},
+											{
+												"label": "Page blobs",
+												"value": "BlobStorage"
+											}
+										],
+										"required": false
+									},
+									"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Premium')]"
+								},
+								{
+									"name": "standardRedundancy",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Redundancy",
+									"placeholder": "",
+									"defaultValue": "Zone-redundant storage (ZRS)",
+									"toolTip": "The data in your Azure storage account is always replicated to ensure durability and high availability. Choose a replication strategy that matches your durability requirements. Some settings can't be changed after the storage account is created. See https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy for more information.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Locally Redundant Storage (LRS)",
+												"description": "Lowest-cost option with basic protection against server rack and drive failures. Recommended for non-critical scenarios.",
+												"value": "LRS"
+											},
+											{
+												"label": "Geo Replicated Storage (GRS)",
+												"description": "Intermediate option with failover capabilities in a secondary region. Recommended for backup scenarios.",
+												"value": "GRS"
+											},
+											{
+												"label": "Read-Access Geo Replicated Storage (RAGRS)",
+												"description": "Intermediate option with failover capabilities in a secondary region. Recommended for backup scenarios.",
+												"value": "RAGRS"
+											},
+											{
+												"label": "Zone Redundant Storage (ZRS)",
+												"description": "Intermediate option with protection against datacenter-level failures. Recommended for high availability scenarios.",
+												"value": "ZRS"
+											},
+											{
+												"label": "Geo Zone Redundant Storage (GZRS)",
+												"description": "Optimal data protection solution that includes the offerings of both GRS and ZRS. Recommended for critical data scenarios.",
+												"value": "GZRS"
+											},
+											{
+												"label": "Read-Access Geo Replicated Zone Redundant Storage (RAGZRS)",
+												"description": "Intermediate option with failover capabilities in a secondary region. Recommended for backup scenarios.",
+												"value": "RAGZRS"
+											}
+										],
+										"required": false
+									},
+									"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Standard')]"
+								},
+								{
+									"name": "premiumRedundancy",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Redundancy",
+									"placeholder": "",
+									"defaultValue": "Zone-redundant storage (ZRS)",
+									"toolTip": "The data in your Azure storage account is always replicated to ensure durability and high availability. Choose a replication strategy that matches your durability requirements. Some settings can't be changed after the storage account is created.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Locally-redundant storage (LRS)",
+												"description": "Lowest-cost option with basic protection against server rack and drive failures. Recommended for non-critical scenarios.",
+												"value": "LRS"
+											},
+											{
+												"label": "Zone-redundant storage (ZRS)",
+												"description": "Intermediate option with protection against datacenter-level failures. Recommended for high availability scenarios.",
+												"value": "ZRS"
+											}
+										],
+										"required": false
+									},
+									"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Premium')]"
+								},
+								{
+									"name": "location",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Storage Account Region",
+									"placeholder": "",
+									"defaultValue": "[steps('basics').resourceScope.location.displayName]",
+									"toolTip": "",
+									"constraints": {
+										"allowedValues": "[if(or(contains(steps('basics').storageAccountDetails.standardRedundancy, 'ZRS'), contains(steps('basics').storageAccountDetails.premiumRedundancy, 'ZRS')), map(filter(first(map(filter(steps('basics').storageApi.value, (resourceTypes) => equals(resourceTypes.resourceType, 'storageAccounts')), (item) => item.zoneMappings)), (item) => equals(length(item.zones), 3)), (item) => parse(concat('{\"label\":\"', item.location, '\",\"value\":\"', toLower(replace(item.location, ' ', '')), '\"}'))), map(first(map(filter(steps('basics').storageApi.value, (resourceTypes) => equals(resourceTypes.resourceType, 'storageAccounts')), (item) => item.locations)), (item) => parse(concat('{\"label\":\"', item, '\",\"value\":\"', toLower(replace(item, ' ', '')), '\"}'))))]",
+										"required": true
+									},
+									"visible": true
+								}
+							],
+							"visible": true
+						}
+					]
+				},
+				{
+					"name": "advanced",
+                    "label": "Advanced",
+                    "elements": [
+						{
+							"name": "security",
+							"type": "Microsoft.Common.Section",
+							"label": "Security",
+							"elements": [
+								{
+									"name": "supportsHttpsTrafficOnly",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Require secure transfer for REST API operations",
+									"defaultValue": "true",
+									"toolTip": "The secure transfer option enhances the security of your storage account by only allowing REST API operations on the storage account using HTTPs. Any requests using HTTP will be rejected when this setting is enabled. When you are using the Azure file service, connections without encryption will fail, including scenarios using SMB 2.1, SMB 3.0 without encryption, and some flavors of the Linux SMB client. Because Azure storage doesn't support HTTPs for custom domain names, this option is not applied when using a custom domain name. Connections via NFSv3 for blobs over TCP will succeed but will not be secured.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "true",
+												"value": true
+											},
+											{
+												"label": "false",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "allowBlobPublicAccess",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Allow enabling anonymous access on individual containers",
+									"defaultValue": "false",
+									"toolTip": "Indicates whether public access can be enabled for containers in the storage account. For security reasons, it is recommended to set it to false.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "true",
+												"value": true
+											},
+											{
+												"label": "false",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "allowSharedKeyAccess",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable storage account key access",
+									"defaultValue": "true",
+									"toolTip": "Indicates whether the storage account permits requests to be authorized with the account access key via Shared Key. If false, then all requests, including shared access signatures, must be authorized with Azure Active Directory (Azure AD). The default value is null, which is equivalent to true.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "true",
+												"value": true
+											},
+											{
+												"label": "false",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "sasExpirationPeriod",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Sas Expiration Period",
+									"subLabel": "",
+									"defaultValue": "180.00:00:00",
+									"toolTip": "The SAS expiration period. ddd.hh:mm:ss.",
+									"constraints": {
+										"required": false,
+										"regex": "^[0-1][0-9][0-9].[0-2][0-9]:[0-6][0-9]:[0-6][0-9]$",
+										"validationMessage": "The format must be in # of days up to 180 followed by a ., followed by a 24 hour representation of hours, followed by a :, followed by mins and :, and then seconds."
+									},
+									"visible": true
+								},
+								{
+									"name": "defaultToOAuthAuthentication",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Default to Microsoft Entra authorization in the Azure portal",
+									"defaultValue": "false",
+									"toolTip": "When set to true, the Azure portal authorizes requests to blobs, files, queues, and tables using Entra ID.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "true",
+												"value": true
+											},
+											{
+												"label": "false",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "minimumTlsVersion",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Minimum TLS Version",
+									"defaultValue": "Version 1.2",
+									"toolTip": "Optional. Set the minimum TLS version on request to storage.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "Version 1.0",
+												"value": "TLS1_0"
+											},
+											{
+												"label": "Version 1.1",
+												"value": "TLS1_1"
+											},
+											{
+												"label": "Version 1.2",
+												"value": "TLS1_2"
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "allowedCopyScope",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Permitted scope for copy operations",
+									"defaultValue": "From storage accounts in the same Microsoft Entra tenant",
+									"toolTip": "Restrict copy to and from Storage Accounts within an AAD tenant or with Private Links to the same VNet.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "From any storage account",
+												"value": ""
+											},
+											{
+												"label": "From storage accounts in the same Microsoft Entra tenant",
+												"value": "AAD"
+											},
+											{
+												"label": "From storage accounts that have a private endpoint on the same virtual network",
+												"value": "PrivateLink"
+											}
+										]
+									},
+									"visible": true
+								}
+							],
+							"visible": true
+						},
+						{
+							"name": "hierarchicalNamespace",
+							"type": "Microsoft.Common.Section",
+							"label": "Hierarchical Namespace",
+							"elements": [
+								{
+									"name": "hierarchicalNamespaceTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "Hierarchical namespace, complemented by Data Lake Storage Gen2 endpoint, enables file and directory semantics, accelerates big data analytics workloads, and enables access control lists (ACLs)",
+										"link": {
+											"label": "Learn more",
+											"uri": "https://aka.ms/learnmore/datalakefilesystems"
+										}
+									}
+								},
+								{
+									"name": "enableHierarchicalNamespace",
+									"type": "Microsoft.Common.CheckBox",
+									"label": "Enable hierarchical namespace",
+									"constraints": {
+										"required": false
+									}
+								}
+							],
+							"visible": true
+						},
+						{
+							"name": "accessProtocols",
+							"type": "Microsoft.Common.Section",
+							"label": "Access Protocols",
+							"elements": [
+								{
+									"name": "accessProtocolsTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "Blob and Data Lake Gen2 endpoints are provisioned by default",
+										"link": {
+											"label": "Learn more",
+											"uri": "https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction"
+										}
+									}
+								},
+								{
+									"name": "enableSftp",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable Sftp",
+									"defaultValue": "false",
+									"toolTip": "Set to true to enable Secure File Transfer Protocol on the storage account.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "true",
+												"value": true
+											},
+											{
+												"label": "false",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+														{
+									"name": "enableNfsV3",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable Nfs V3",
+									"defaultValue": "false",
+									"toolTip": "Set to true to enable NFS 3.0 support on the storage account.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "true",
+												"value": true
+											},
+											{
+												"label": "false",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								}
+							],
+							"visible": "[equals(steps('advanced').hierarchicalNamespace.enableHierarchicalNamespace, true)]"
+						},
+						{
+							"name": "blobStorage",
+							"type": "Microsoft.Common.Section",
+							"label": "Blob storage",
+							"elements": [
+								{
+									"name": "allowCrossTenantReplication",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Allow Cross Tenant Replication",
+									"defaultValue": "false",
+									"toolTip": "Allow object replication to copy blobs to a destination account on a different Microsoft Entra tenant. Not enabling cross-tenant replication will limit object replication to storage accounts in the the same Microsoft Entra tenant",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "true",
+												"value": true
+											},
+											{
+												"label": "false",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "accessTier",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Access Tier",
+									"defaultValue": "Hot: Frequently access data and day-to-day usage scenarios",
+									"toolTip": "The account access tier is teh default tier that is inferred by any blob wihout an explicitly set tier. The hot access tier is ideal for frequently accessed data, and the cool access tier is ideal for infrequently access data. The archive access tier can only be set at the blob level and not on the account.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Hot: Frequently access data and day-to-day usage scenarios",
+												"value": "Hot"
+											},
+											{
+												"label": "Cool: Infrequently accessed data and backup scenarios",
+												"value": "Cool"
+											}
+										],
+										"required": false
+									},
+									"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Standard')]"
+								}
+							],
+							"visible": true
+						},
+						{
+							"name": "azureFiles",
+							"type": "Microsoft.Common.Section",
+							"label": "Azure Files",
+							"elements": [
+								{
+									"name": "largeFileSharesState",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Large File Shares State",
+									"defaultValue": "Disabled",
+									"toolTip": "Provides file share support up to a maximum of 100 TiB. Large File share storage accounts do not have the ability to convert to geo-redundant storage offerings and upgrade is permanent.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "Disabled",
+												"value": "Disabled"
+											},
+											{
+												"label": "Enabled",
+												"value": "Enabled"
+											}
+										]
+									},
+									"visible": true
+								}
+							],
+							"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Standard')]"
+						}
+                    ]
+                },
+				{
+					"name": "managedIdentities",
+                    "label": "Managed Identities",
+                    "elements": [
+						{
+							"name": "identitySelector",
+							"type": "Microsoft.ManagedIdentity.IdentitySelector",
+							"label": "Managed Identity Configuration",
+							"toolTip": {
+								"systemAssignedIdentity": "Enable system assigned identity to grant the resource access to other existing resources.",
+								"userAssignedIdentity": "Add user assigned identities to grant the resource access to other existing resources."
+							},
+							"defaultValue": {
+								"systemAssignedIdentity": "Off"
+							},
+							"options": {
+								"hideSystemAssignedIdentity": false,
+								"hideUserAssignedIdentity": false
+							},
+							"visible": true
+						}
+					]
+				},
+				{
+					"name": "networking",
+					"label": "Networking",
+					"elements": [
+						{
+							"name": "networkConnectivity",
+							"type": "Microsoft.Common.Section",
+							"label": "Network Connectivity",
+							"elements": [
+								{
+                					"name": "networkConnectivityTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "You can connect to your storage account either publicly, via public IP addresses or service endpoints, or privately, using a private endpoint."
+									}
+            					},
+								{
+									"name": "publicNetworkAccess",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Public Network Access",
+									"defaultValue": "Disabled",
+									"toolTip": "Determines if the public endpoint is enabled on the storage account. This setting can be updated in the Networking node after deployment.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "Enabled",
+												"value": "Enabled"
+											},
+											{
+												"label": "Disabled",
+												"value": "Disabled"
+											}
+										]
+									},
+									"visible": true
+								}
+                			],
+                			"visible": true
+            			},
+						{
+							"name": "privateEndpoint",
+							"type": "Microsoft.Common.Section",
+							"label": "Private endpoint",
+							"elements": [
+								{
+									"name": "privateEndpointTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "Create a private endpoint to allow a private connection to this resource. Additional private endpoint connections can be created within the storage account or private link center."
+									}
+								},
+								{
+									"name": "subResource",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Storage sub-resource",
+									"placeholder": "",
+									"defaultValue": "blob",
+									"toolTip": "",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "blob",
+												"value": "blob"
+											},
+											{
+												"label": "file",
+												"value": "file"
+											},
+											{
+												"label": "table",
+												"value": "table"
+											},
+											{
+												"label": "queue",
+												"value": "queue"
+											},
+											{
+												"label": "web",
+												"value": "web"
+											},
+											{
+												"label": "dfs",
+												"value": "dfs"
+											}
+										],
+										"required": false
+									},
+									"visible": true
+								},
+								{
+									"name": "virtualNetworksApi",
+									"type": "Microsoft.Solutions.ArmApiControl",
+									"request": {
+										"method": "GET",
+										"path": "[concat(steps('basics').resourceScope.subscription.id, '/providers/Microsoft.Network/virtualNetworks?api-version=2022-11-01')]"
+									}
+								},
+								{
+									"name": "virtualNetwork",
+									"type": "Microsoft.Common.DropDown",
+									"visible": true,
+									"label": "Virtual Network",
+									"defaultValue": "",
+									"toolTip": "Select an existing virtual network for the storage account private endpoint. If the desired network isn't available be sure to change the region in the Deployment Details section above.",
+									"constraints": {
+										"required": false,
+										"allowedValues": "[map(filter(steps('networking').privateEndpoint.virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+									}
+								},
+								{
+									"name": "subnetsApi",
+									"type": "Microsoft.Solutions.ArmApiControl",
+									"request": {
+										"method": "GET",
+										"path": "[concat(steps('networking').privateEndpoint.virtualNetwork, '/subnets?api-version=2022-05-01')]"
+									}
+								},
+								{
+									"name": "subnet",
+									"type": "Microsoft.Common.DropDown",
+									"visible": true,
+									"label": "Subnet",
+									"defaultValue": "",
+									"toolTip": "Select an existing subnet for the private endpoint.",
+									"constraints": {
+										"required": false,
+										"allowedValues": "[map(steps('networking').privateEndpoint.subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+									}
+								},
+								{
+									"name": "privateDNSIntegrationTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "To connect privately with your private endpoint, you need a DNS record. It is recommended that you integrate your private endpoint with a private DNS zone. You can utilize your own DNS servers or create DNS records using the host files on your virtual machines.",
+										"link": {
+											"label": "Learn more about private DNS integration",
+											"uri": "https://go.microsoft.com/fwlink/?linkid=2100445"
+										}
+									}
+								},
+								{
+									"name": "integrateWithPrivateDNSZone",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Integrate with private DNS zone",
+									"defaultValue": "No",
+									"toolTip": "",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										],
+										"required": false
+									},
+									"visible": true
+								},
+								{
+                                    "name": "privateDnsZoneSelector",
+                                    "type": "Microsoft.Solutions.ResourceSelector",
+                                    "label": "Storage sub-resource Private Dns Zone",
+                                    "resourceType": "Microsoft.Network/privateDnsZones",
+                                    "constraints": {
+                                        "required": true
+                                    },
+									"visible": "[if(equals(steps('networking').privateEndpoint.integrateWithPrivateDNSZone, true),true, false)]"
+                                }
+							],
+							"visible": true
+						}
+					]
+				},
+				{
+					"name": "diagnostics",
+					"label": "Diagnostics",
+					"elements": [
+						{
+							"name": "enableDiagnostics",
+							"type": "Microsoft.Common.OptionsGroup",
+							"label": "Enable diagnostics",
+							"defaultValue": "No",
+							"toolTip": "",
+							"constraints": {
+								"allowedValues": [
+									{
+										"label": "Yes",
+										"value": true
+									},
+									{
+										"label": "No",
+										"value": false
+									}
+								],
+								"required": true
+							},
+							"visible": true
+						},
+						{
+							"name": "diagnosticSettings",
+							"type": "Microsoft.Common.Section",
+							"label": "Diagnostic Settings",
+							"elements": [
+								{
+									"name": "diagnosticSettingsName",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Diagnostic Settings Name",
+									"subLabel": "",
+									"defaultValue": "",
+									"toolTip": "The name of the diagnostic setting, if deployed. If left empty, it defaults to \"<resourceName>-diagnosticSettings\".",
+									"constraints": {
+										"required": false,
+										"regex": "",
+										"validationMessage": ""
+									}
+								},
+								{
+									"name": "storageAccount",
+									"type": "Microsoft.Solutions.ResourceSelector",
+									"label": "Diagnostics Storage Account",
+									"resourceType": "Microsoft.Storage/storageAccounts",
+									"toolTip": "Select the storage account to where diagnostic logs are sent."
+								},
+								{
+									"name": "logAnalyticsWorkspace",
+									"type": "Microsoft.Solutions.ResourceSelector",
+									"label": "Diagnostics Log Analytics Workspace",
+									"resourceType": "Microsoft.OperationalInsights/workspaces",
+									"toolTip": "Select the log analytics workspace to where diagnostic logs are sent."
+								}
+							],
+							"visible": "[steps('diagnostics').enableDiagnostics]"
+						}						
+					]
+				},
+				{
+					"name": "tags",
+					"label": "Tags",
+					"elements": [
+						{
+							"name": "tagsByResource",
+							"type": "Microsoft.Common.TagsByResource",
+							"resources": [
+								"Microsoft.Network/privateEndpoints",
+								"Microsoft.Storage/storageAccounts"
+							]
+						}
+					]
+				}
+            ]
+        },
+        "outputs": {
+            "kind": "ResourceGroup",
+            "location": "[steps('basics').resourceScope.location.name]",
+            "resourceGroupId": "[steps('basics').resourceScope.resourceGroup.id]",
+            "parameters": {
+                "name": "[steps('basics').storageAccountDetails.name]",
+                "location": "[steps('basics').storageAccountDetails.location]",
+				"kind": "[if(equals(steps('basics').storageAccountDetails.performance, 'Standard'), 'StorageV2', steps('basics').storageAccountDetails.premiumAccountType)]",
+				"skuName": "[concat(steps('basics').storageAccountDetails.performance, '_', if(equals(steps('basics').storageAccountDetails.performance, 'Standard'), steps('basics').storageAccountDetails.standardRedundancy, steps('basics').storageAccountDetails.premiumRedundancy))]",
+				"supportsHttpsTrafficOnly": "[steps('advanced').security.supportsHttpsTrafficOnly]",
+				"allowBlobPublicAccess": "[steps('advanced').security.allowBlobPublicAccess]",
+				"allowSharedKeyAccess": "[steps('advanced').security.allowSharedKeyAccess]",
+				"sasExpirationPeriod": "[steps('advanced').security.sasExpirationPeriod]",
+				"defaultToOAuthAuthentication": "[steps('advanced').security.defaultToOAuthAuthentication]",
+				"minimumTlsVersion": "[steps('advanced').security.minimumTlsVersion]",
+				"allowedCopyScope": "[steps('advanced').security.allowedCopyScope]",
+				"enableHierarchicalNamespace": "[steps('advanced').hierarchicalNamespace.enableHierarchicalNamespace]",
+				"enableSftp": "[steps('advanced').accessProtocols.enableSftp]",
+				"enableNfsV3": "[steps('advanced').accessProtocols.enableNfsV3]",
+				"allowCrossTenantReplication": "[steps('advanced').blobStorage.allowCrossTenantReplication]",
+				"accessTier": "[steps('advanced').blobStorage.accessTier]",
+				"largeFileSharesState": "[steps('advanced').azureFiles.largeFileSharesState]",
+				"systemAssignedIdentity": "[if(contains(steps('managedIdentities').identitySelector.type, 'SystemAssigned'), true, false)]",
+				"userAssignedIdentities": "[steps('managedIdentities').identitySelector.userAssignedIdentities]",
+				"publicNetworkAccess": "[steps('networking').networkConnectivity.publicNetworkAccess]",
+				"privateEndpoints": "[if(empty(steps('networking').privateEndpoint.subnet), parse('[]'), parse(concat('[{\"service\":\"', steps('networking').privateEndpoint.subResource, '\",\"subnetResourceId\":\"', steps('networking').privateEndpoint.subnet, '\",\"privateDNSZoneResourceIds\":[\"', steps('networking').privateEndpoint.privateDnsZoneSelector.id, '\"]}]')))]",
+				"diagnosticSettingsName": "[if(equals(steps('diagnostics').enableDiagnostics, true), steps('diagnostics').diagnosticSettings.diagnosticSettingsName, '')]",
+				"diagnosticStorageAccountId": "[if(empty(steps('diagnostics').diagnosticSettings.storageAccount), '', steps('diagnostics').diagnosticSettings.storageAccount.id)]",
+				"diagnosticWorkspaceId": "[if(empty(steps('diagnostics').diagnosticSettings.logAnalyticsWorkspace), '', steps('diagnostics').diagnosticSettings.logAnalyticsWorkspace.id)]",
+				"tagsByResource": "[steps('tags').tagsByResource]"
+            }
+        }
+    }
+}
