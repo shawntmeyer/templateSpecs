@@ -1,4 +1,4 @@
-metadata name = 'Storage Accounts'
+metadata name = 'Storage Account'
 metadata description = 'This module deploys a Storage Account.'
 metadata owner = 'stmeyer'
 
