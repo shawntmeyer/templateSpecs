@@ -134,7 +134,7 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Redundancy",
 									"placeholder": "",
-									"defaultValue": "Zone-redundant storage (ZRS)",
+									"defaultValue": "Zone Redundant Storage (ZRS)",
 									"toolTip": "The data in your Azure storage account is always replicated to ensure durability and high availability. Choose a replication strategy that matches your durability requirements. Some settings can't be changed after the storage account is created. See https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy for more information.",
 									"constraints": {
 										"allowedValues": [
@@ -169,7 +169,7 @@
 												"value": "RAGZRS"
 											}
 										],
-										"required": false
+										"required": true
 									},
 									"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Standard')]"
 								},
