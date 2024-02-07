@@ -876,7 +876,7 @@
 				"diagnosticSettingsName": "[if(equals(steps('diagnostics').enableDiagnostics, true), steps('diagnostics').diagnosticSettings.diagnosticSettingsName, '')]",
 				"diagnosticStorageAccountId": "[if(empty(steps('diagnostics').diagnosticSettings.storageAccount), '', steps('diagnostics').diagnosticSettings.storageAccount.id)]",
 				"diagnosticWorkspaceId": "[if(empty(steps('diagnostics').diagnosticSettings.logAnalyticsWorkspace), '', steps('diagnostics').diagnosticSettings.logAnalyticsWorkspace.id)]",
-				"tagsByResource": "[steps('tags').tagsByResource]"
+				"tags": "[steps('tags').tagsByResource]"
             }
         }
     }

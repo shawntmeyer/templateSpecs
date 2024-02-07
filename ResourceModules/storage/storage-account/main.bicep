@@ -144,9 +144,6 @@ param diagnosticEventHubName string = ''
 @description('Optional. Tags of the resource.')
 param tags object = {}
 
-@description('Optional. For the Custom Form UI only. Tags by Resource to be used instead of tags parameter.')
-param tagsByResource object = {}
-
 @description('Optional. Restrict copy to and from Storage Accounts within an AAD tenant or with Private Links to the same VNet.')
 @allowed([
   ''
@@ -221,7 +218,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
     name: skuName
   }
   identity: identity
-  tags: contains(tagsByResource, 'Microsoft.Storage/storageAccounts') ? tagsByResource['Microsoft.Storage/storageAccounts'] : tags
+  tags: contains(tags, 'Microsoft.Storage/storageAccounts') ? tags['Microsoft.Storage/storageAccounts'] : {}
   properties: {
     allowSharedKeyAccess: allowSharedKeyAccess
     defaultToOAuthAuthentication: defaultToOAuthAuthentication
@@ -305,7 +302,7 @@ module storageAccount_privateEndpoints '../../network/private-endpoint/main.bice
     subnetResourceId: privateEndpoint.subnetResourceId
     location: contains(privateEndpoint, 'location') ? privateEndpoint.location : reference(split(privateEndpoint.subnetResourceId, '/subnets/')[0], '2020-06-01', 'Full').location
     privateDnsZoneGroup: contains(privateEndpoint, 'privateDnsZoneGroup') ? privateEndpoint.privateDnsZoneGroup : {}
-    tags: contains(tagsByResource, 'Microsoft.Network/privateEndpoints') ? tagsByResource['Microsoft.Network/privateEndpoints'] : (contains(privateEndpoint, 'tags') ? privateEndpoint.tags : {})
+    tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : (contains(privateEndpoint, 'tags') ? privateEndpoint.tags : {} )
     manualPrivateLinkServiceConnections: contains(privateEndpoint, 'manualPrivateLinkServiceConnections') ? privateEndpoint.manualPrivateLinkServiceConnections : []
     customDnsConfigs: contains(privateEndpoint, 'customDnsConfigs') ? privateEndpoint.customDnsConfigs : []
     ipConfigurations: contains(privateEndpoint, 'ipConfigurations') ? privateEndpoint.ipConfigurations : []
