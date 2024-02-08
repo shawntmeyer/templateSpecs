@@ -32,7 +32,7 @@ param functionHostingPlanName string = ''
 param functionAppEnablePublicAccess bool = true
 
 @description('The resource Id of the subnet used by the function App for inbound traffic.')
-param functionAppInboundSubnetResourceId string
+param functionAppInboundSubnetResourceId string = ''
 
 @description('The resource Id of the private DNS Zone used by the function App.')
 param functionAppPrivateDnsZoneResourceId string = ''
