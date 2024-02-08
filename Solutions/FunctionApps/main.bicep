@@ -339,7 +339,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       linuxFxVersion: contains(functionAppKind, 'linux') ? '${runtimeStack}|${runtimeVersion}' : null
       netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${runtimeVersion}' : null
     }
-    virtualNetworkSubnetResourceId: functionAppOutputSubnetResourceId
+    virtualNetworkSubnetId: functionAppOutputSubnetResourceId
     vnetContentShareEnabled: true
     vnetRouteAllEnabled: true
   }
