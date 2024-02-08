@@ -340,6 +340,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${runtimeVersion}' : null
     }
     virtualNetworkSubnetId: functionAppOutputSubnetResourceId
+    vnetImagePullEnabled: true
     vnetContentShareEnabled: true
     vnetRouteAllEnabled: true
   }
