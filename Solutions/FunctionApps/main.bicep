@@ -1,52 +1,78 @@
 @description('The location of all resources deployed by this template.')
 param location string
 
-@description('The kind of the App Service Plan used by the function App.')
-@allowed([
-  'App'
-  'Elastic'
-  'FunctionApp'
-  'Windows'
-  'Linux'
-])
-param appServicePlanKind string
-
 @description('The name of the function App.')
 param functionAppName string
 
 @description('The type of site to deploy')
 @allowed([
-  'functionapp' // function app windows os
+  'functionapp'       // function app windows os
   'functionapp,linux' // function app linux os
 ])
 param functionAppKind string = 'functionapp,linux'
 
-@description('The name of the file share used by the function App.')
-param functionAppFileShareName string
+@description('The runtime stack used by the function App.')
+@allowed([
+  'dotnet'
+  'dotnet-isolated'
+  'java'
+  'node'
+  'powershell'
+  'python'
+])
+param runtimeStack string = 'dotnet-isolated'
+
+@description('The version of the runtime stack used by the function App.')
+param runtimeVersion string = '6.0'
 
 @description('The name of the service plan used by the function App.')
-param functionAppServicePlanName string
+param functionHostingPlanName string = ''
 
 @description('Indicates whether the function App should be accessible from the public network.')
 param functionAppEnablePublicAccess bool = true
 
 @description('The resource Id of the subnet used by the function App for inbound traffic.')
-param functionAppInboundVnetSubnetId string
+param functionAppInboundSubnetResourceId string
 
 @description('The resource Id of the private DNS Zone used by the function App.')
-param functionAppPrivateDnsZoneResourceId string
+param functionAppPrivateDnsZoneResourceId string = ''
 
 @description('The resource Id of the subnet used by the function App for outbound traffic.')
-param functionAppOutboundVnetSubnetId string
+param functionAppOutputSubnetResourceId string
+
+@description('The resource Id of the existing server farm to use for the function App.')
+param hostingPlanExistingResourceId string = ''
+
+@description('''When you create a function app in Azure, you must choose a hosting plan for your app.
+There are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. 
+* Consumption: Scale automatically and only pay for compute resources when your functions are running.
+* FunctionsPremium: Automatically scales based on demand using pre-warmed workers, which run applications with no delay after being idle, runs on more powerful instances, and connects to virtual networks.
+* AppServicePlan: Best for long-running scenarios where Durable Functions can't be used. Consider an App Service plan in the following situations:
+  * You have existing, underutilized VMs that are already running other App Service instances.
+  * Predictive scaling and costs are required.
+''')
+@allowed([
+  'Consumption'
+  'FunctionsPremium'
+  'AppServicePlan'
+])
+param hostingPlanType string = 'FunctionsPremium'
+
+@allowed([
+  'ElasticPremium_EP1'
+  'Basic_B1'
+  'Standard_S1'
+  'PremiumV3_P1V3'
+  'PremiumV3_P2V3'
+  'PremiumV3_P3V3'
+])
+param hostingPlanPricing string = 'ElasticPremium_EP1'
 
 @description('The resource Id of the Log Analytics workspace used for diagnostics.')
-param logAnalyticsWorkspaceId string
-
-@description('The name of the .NET Framework version used by the function App.')
-param netFrameworkVersion string = 'v8.0'
+param logAnalyticsWorkspaceId string = ''
 
 @description('The resource Id of the private Endpoint Subnet.')
-param storagePrivateEndpointSubnetId string
+param storagePrivateEndpointSubnetResourceId string
 
 @description('The name of the storage account used by the function App.')
 param storageAccountName string
@@ -63,9 +89,54 @@ param storageQueueDnsZoneId string
 @description('The resource Id of the table storage Private DNS Zone.')
 param storageTableDnsZoneId string
 
-
 @description('The tags to be assigned to the resources deployed by this template.')
-param tags object
+param tags object = {}
+
+var hostingPlanSku = {
+  name: split(hostingPlanPricing, '_')[1]
+  tier: split(hostingPlanPricing, '_')[0]
+}
+
+var commonAppSettings = {
+  APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
+  APPINSIGHTS_INSTRUMENTATIONKEY: applicationInsights.properties.InstrumentationKey
+  AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+  WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+  WEBSITE_CONTENTSHARE: toLower(functionAppName)
+  FUNCTIONS_EXTENSION_VERSION: '~4'
+  FUNCTIONS_WORKER_RUNTIME: runtimeStack
+}
+
+var isolatedAppSettings = {
+  WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED: '1'
+}
+
+var windowsAppSettings = {
+  WEBSITE_NODE_DEFAULT_VERSION: '~${runtimeVersion}'
+}
+
+var appSettingsTemp = functionAppKind == 'functionapp' ? union(commonAppSettings, windowsAppSettings) : commonAppSettings
+var appSettings = contains(runtimeStack, 'isolated') ? union(appSettingsTemp, isolatedAppSettings) : appSettingsTemp
+
+var functionAppDiagnosticLogCategoriesToEnable = functionAppKind == 'functionapp' ? [
+  'FunctionAppLogs'
+] : [
+  'AppServiceHTTPLogs'
+  'AppServiceConsoleLogs'
+  'AppServiceAppLogs'
+  'AppServiceAuditLogs'
+  'AppServiceIPSecAuditLogs'
+  'AppServicePlatformLogs'
+]
+
+var diagnosticsLogsSpecified = [for category in functionAppDiagnosticLogCategoriesToEnable: {
+  category: category
+  enabled: true
+  retentionPolicy: {
+    enabled: true
+    days: 30
+  }
+}]
 
 var storagePrivateEndpoints = [
   {
@@ -137,10 +208,13 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
       sasExpirationPeriod: '180.00:00:00'
     }
   }
+  resource blobServices 'blobServices' = {
+    name: 'default'
+  }
   resource fileServices 'fileServices' = {
     name: 'default'
     resource fileShare 'shares' = {
-      name: functionAppFileShareName
+      name: toLower(functionAppName)
       properties: {
         enabledProtocols: 'SMB'
         shareQuota: 5120
@@ -164,7 +238,7 @@ resource storageAccountPrivateEndpoints 'Microsoft.Network/privateEndpoints@2021
       }
     ]
     subnet: {
-      id: storagePrivateEndpointSubnetId
+      id: storagePrivateEndpointSubnetResourceId
     }      
   }
 }]
@@ -184,15 +258,9 @@ resource storageAccountPrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/
   }
 }]
 
-resource storageAccount_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+resource storageAccount_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(!empty(logAnalyticsWorkspaceId)) {
   name: '${storageAccountName}-diagnosticSettings'
   properties: {
-    logs: [
-      {
-        category: 'Storage'
-        enabled: true
-      }
-    ]
     metrics: [
       {
         category: 'Transaction'
@@ -204,25 +272,39 @@ resource storageAccount_diagnosticSettings 'Microsoft.Insights/diagnosticSetting
   scope: storageAccount
 }
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
-  name: functionAppServicePlanName
-  kind: appServicePlanKind
-  location: location
-  sku: {
-    name: 'EP1'
-    tier: 'ElasticPremium'
-  }
-  tags: contains(tags, 'Microsoft.Web/serverfarms') ? tags['Microsoft.Web/serverfarms'] : {}
+resource storageAccount_blob_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(!empty(logAnalyticsWorkspaceId)) {
+  name: '${storageAccountName}-logs'
+  scope: storageAccount::blobServices
   properties: {
-    maximumElasticWorkerCount: 20
-    reserved: appServicePlanKind == 'Linux'
-    targetWorkerCount: 0
-    zoneRedundant: false
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'StorageWrite'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'Transaction'
+        enabled: true
+      }
+    ]
   }
 }
 
-resource appServicePlan_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${functionAppServicePlanName}-diagnosticSettings'
+resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = if (hostingPlanType != 'Consumption' && empty(hostingPlanExistingResourceId)) {
+  name: functionHostingPlanName
+  location: location
+  sku: hostingPlanSku
+  tags: contains(tags, 'Microsoft.Web/serverfarms') ? tags['Microsoft.Web/serverfarms'] : {}
+  properties: {
+    maximumElasticWorkerCount: functionAppKind == 'FunctionsPremium' ? 20 : null
+    reserved: contains(functionAppKind, 'linux') ? true : false
+  }
+}
+
+resource hostingPlan_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(hostingPlanType != 'Consumption' && empty(hostingPlanExistingResourceId)) {
+  name: '${functionHostingPlanName}-diagnosticSettings'
   properties: {
     metrics: [
       {
@@ -232,11 +314,11 @@ resource appServicePlan_diagnosticSettings 'Microsoft.Insights/diagnosticSetting
     ]
     workspaceId: logAnalyticsWorkspaceId
   }
-  scope: appServicePlan
+  scope: hostingPlan
 }
 
-resource functionAppInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: functionAppName
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if(!empty(logAnalyticsWorkspaceId)) {
+  name: '${functionAppName}-insights'
   kind: 'web'
   location: location
   properties: {
@@ -252,58 +334,22 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   tags: contains(tags, 'Microsoft.Web/sites') ? tags['Microsoft.Web/sites'] : {}
   properties: {
     publicNetworkAccess: functionAppEnablePublicAccess ? 'Enabled' : 'Disabled'
-    serverFarmId: appServicePlan.id  
+    serverFarmId: !empty(hostingPlanExistingResourceId) ? hostingPlanExistingResourceId : ( hostingPlanType != 'Consumption' ? hostingPlan.id : null )
     siteConfig: {
-      appSettings: [
-        /*
-        {
-          name: 'WEBSITE_CONTENTOVERVNET'
-          value: '1'
-        }
-        {
-          name: 'WEBSITE_VNET_ROUTE_ALL'
-          value: '1'
-        }
-        */
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'dotnet'
-        }
-        {
-          name: 'WEBSITE_NODE_DEFAULT_VERSION'
-          value: '~14'
-        }
-        {
-          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
-          value: functionAppInsights.properties.InstrumentationKey
-        }
-        {
-          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: functionAppInsights.properties.ConnectionString
-        }
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'WEBSITE_CONTENTSHARE'
-          value: functionAppFileShareName
-        }
-      ]
-      netFrameworkVersion: !empty(netFrameworkVersion) ? netFrameworkVersion : null
+      linuxFxVersion: contains(functionAppKind, 'linux') ? '${runtimeStack}|${runtimeVersion}' : null
+      netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${runtimeVersion}' : null
     }
-    virtualNetworkSubnetId: functionAppOutboundVnetSubnetId
+    virtualNetworkSubnetResourceId: functionAppOutputSubnetResourceId
     vnetContentShareEnabled: true
     vnetRouteAllEnabled: true
   }
+}
+
+resource functionAppSettings 'Microsoft.Web/sites/config@2022-09-01' = {
+  name: 'appsettings'
+  kind: functionAppKind
+  parent: functionApp
+  properties: appSettings
 }
 
 resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(!functionAppEnablePublicAccess) {
@@ -321,7 +367,7 @@ resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02
       }
     ]
     subnet: {
-      id: functionAppEnablePublicAccess ? null : functionAppInboundVnetSubnetId 
+      id: functionAppEnablePublicAccess || empty(functionAppInboundSubnetResourceId) ? null : functionAppInboundSubnetResourceId 
     }      
   }
 }
@@ -332,34 +378,14 @@ resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/pri
   properties: {
     privateDnsZoneConfigs: [
       {
-        name: '${last(split(functionAppPrivateDnsZoneResourceId, '/'))}-config'
+        name: !empty(functionAppPrivateDnsZoneResourceId) ? '${last(split(functionAppPrivateDnsZoneResourceId, '/'))}-config' : null
         properties: {
-          privateDnsZoneId: functionAppEnablePublicAccess ? null : functionAppPrivateDnsZoneResourceId
+          privateDnsZoneId: functionAppEnablePublicAccess || empty(functionAppPrivateDnsZoneResourceId) ? null : functionAppPrivateDnsZoneResourceId
         }
       }
     ]
   }
 }
-
-var functionAppDiagnosticLogCategoriesToEnable = functionAppKind == 'functionapp' ? [
-  'FunctionAppLogs'
-] : [
-  'AppServiceHTTPLogs'
-  'AppServiceConsoleLogs'
-  'AppServiceAppLogs'
-  'AppServiceAuditLogs'
-  'AppServiceIPSecAuditLogs'
-  'AppServicePlatformLogs'
-]
-
-var diagnosticsLogsSpecified = [for category in functionAppDiagnosticLogCategoriesToEnable: {
-  category: category
-  enabled: true
-  retentionPolicy: {
-    enabled: true
-    days: 30
-  }
-}]
 
 resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
   name: '${functionAppName}-diagnosticSettings'
@@ -379,6 +405,3 @@ resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@
   }
   scope: functionApp
 }
-
-
-
