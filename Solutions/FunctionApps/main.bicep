@@ -1,17 +1,19 @@
-@description('The location of all resources deployed by this template.')
-param location string
+// Basics
 
-@description('The name of the function App.')
+@description('Optional. The location of all resources deployed by this template.')
+param location string = resourceGroup().location
+
+@description('Required. The name of the function App.')
 param functionAppName string
 
-@description('The type of site to deploy')
+@description('Optional. The type of site to deploy')
 @allowed([
   'functionapp'       // function app windows os
   'functionapp,linux' // function app linux os
 ])
 param functionAppKind string = 'functionapp,linux'
 
-@description('The runtime stack used by the function App.')
+@description('Optional. The runtime stack used by the function App.')
 @allowed([
   'dotnet'
   'dotnet-isolated'
@@ -22,28 +24,12 @@ param functionAppKind string = 'functionapp,linux'
 ])
 param runtimeStack string = 'dotnet-isolated'
 
-@description('The version of the runtime stack used by the function App.')
+@description('Optional. The version of the runtime stack used by the function App. The version must be compatible with the runtime stack.')
 param runtimeVersion string = '6.0'
 
-@description('The name of the service plan used by the function App.')
-param functionHostingPlanName string = ''
+// Hosting Plan
 
-@description('Indicates whether the function App should be accessible from the public network.')
-param functionAppEnablePublicAccess bool = true
-
-@description('The resource Id of the subnet used by the function App for inbound traffic.')
-param functionAppInboundSubnetResourceId string = ''
-
-@description('The resource Id of the private DNS Zone used by the function App.')
-param functionAppPrivateDnsZoneResourceId string = ''
-
-@description('The resource Id of the subnet used by the function App for outbound traffic.')
-param functionAppOutputSubnetResourceId string
-
-@description('The resource Id of the existing server farm to use for the function App.')
-param hostingPlanExistingResourceId string = ''
-
-@description('''When you create a function app in Azure, you must choose a hosting plan for your app.
+@description('''Optional. When you create a function app in Azure, you must choose a hosting plan for your app.
 There are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. 
 * Consumption: Scale automatically and only pay for compute resources when your functions are running.
 * FunctionsPremium: Automatically scales based on demand using pre-warmed workers, which run applications with no delay after being idle, runs on more powerful instances, and connects to virtual networks.
@@ -58,6 +44,13 @@ There are three basic Azure Functions hosting plans provided by Azure Functions:
 ])
 param hostingPlanType string = 'FunctionsPremium'
 
+@description('Conditional. The resource Id of the existing server farm to use for the function App.')
+param hostingPlanExistingResourceId string = ''
+
+@description('Conditional. The name of the service plan used by the function App. Not used when "hostingPlanExistingResourceId" is provided or hostingPlanType is set to "Consumption".')
+param functionHostingPlanName string = ''
+
+@description('Optional. The hosting plan pricing plan. Not used when "hostingPlanExistingResourceId" is provided or hostingPlanType is set to "Consumption".')
 @allowed([
   'ElasticPremium_EP1'
   'Basic_B1'
@@ -68,28 +61,108 @@ param hostingPlanType string = 'FunctionsPremium'
 ])
 param hostingPlanPricing string = 'ElasticPremium_EP1'
 
-@description('The resource Id of the Log Analytics workspace used for diagnostics.')
-param logAnalyticsWorkspaceId string = ''
-
-@description('The resource Id of the private Endpoint Subnet.')
-param storagePrivateEndpointSubnetResourceId string
-
-@description('The name of the storage account used by the function App.')
+@description('Required. The name of the storage account used by the function App.')
 param storageAccountName string
 
-@description('The resource Id of the blob storage Private DNS Zone.')
-param storageBlobDnsZoneId string
+// Monitoring
+@description('Optional. To enable diagnostics settings, provide the resource Id of the Log Analytics workspace where logs are to be sent.')
+param logAnalyticsWorkspaceId string = ''
 
-@description('The resource Id of the file storage Private DNS Zone.')
-param storageFileDnsZoneId string
+// Networking
 
-@description('The resource Id of the queue storage Private DNS Zone.')
-param storageQueueDnsZoneId string
+@description('Indicates whether outbound traffic from the function App should be routed through a private endpoint.')
+param enableNetworkInjection bool = true
 
-@description('The resource Id of the table storage Private DNS Zone.')
-param storageTableDnsZoneId string
+@description('Indicates whether the function App should be accessible from the public network.')
+param enablePublicAccess bool = true
 
-@description('The tags to be assigned to the resources deployed by this template.')
+//  existing Subnets
+
+@description('Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when "enablePublicAccess" is set to false and you aren\'t creating a new vnet and subnets.')
+param functionAppInboundSubnetId string = ''
+
+@description('Conditional. The resource Id of the subnet used by the function App for outbound traffic. Required when "enableNetworkInjection" is set to true and you aren\'t creating a new vnet and subnets.')
+param functionAppOutboundSubnetId string = ''
+
+@description('Conditional The resource Id of the private Endpoint Subnet. Required when "enableNetworkInjection" is set to true and you aren\'t creating a new vnet and subnets.')
+param storagePrivateEndpointSubnetId string = ''
+
+//  new Virtual Network (only used when the existing subnets aren't specified. Fill in all values where needed.)
+
+@description('Conditional. The name of the virtual network used for Virtual Network Integration. Required when "enableNetworkInjection" is set to true and you aren\'t providing the resource Id of an existing virtual network.')
+param vnetName string = ''
+
+@description('Optional. The address prefix of the virtual network used Virtual Network Integration.')
+param vnetAddressPrefix string = '10.0.0.0/16'
+
+@description('Optional. The name of the subnet used by the function App for Virtual Network Integration.')
+param functionAppOutboundSubnetName string = 'fa-outbound-subnet'
+
+@description('Optional. The address prefix of the subnet used by the function App for Virtual Network Integration.')
+param functionAppOutboundSubnetAddressPrefix string = '10.0.0.0/24'
+
+@description('Optional. The name of the subnet used for private Endpoints.')
+param storagePrivateEndpointSubnetName string = 'storage-subnet'
+
+@description('Optional. The address prefix of the subnet used for private Endpoints.')
+param storagePrivateEndpointSubnetAddressPrefix string = '10.0.1.0/24'
+
+//  only required when EnablePublicAccess is set to false
+@description('Optional. The name of the subnet used by the function App for inbound access when public access is disabled.')
+param functionAppInboundSubnetName string = 'fa-inbound-subnet'
+
+@description('Optional. The address prefix of the subnet used by the function App for inbound access when public access is disabled.')
+param functionAppInboundSubnetAddressPrefix string = '10.0.2.0/24'
+
+// Private DNS Zones
+
+@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enablePublicAccess" is set to false.')
+param functionAppPrivateDnsZoneResourceId string = ''
+
+@description('Conditional. The resource Id of the blob storage Private DNS Zone. Required when "enableNetworkInjection" is set to true.')
+param storageBlobDnsZoneId string = ''
+
+@description('Conditional. The resource Id of the file storage Private DNS Zone. Required when "enableNetworkInjection" is set to true.')
+param storageFileDnsZoneId string = ''
+
+@description('Conditional. The resource Id of the queue storage Private DNS Zone. Required when "enableNetworkInjection" is set to true.')
+param storageQueueDnsZoneId string = ''
+
+@description('Conditional. The resource Id of the table storage Private DNS Zone. Required when "enableNetworkInjection" is set to true.')
+param storageTableDnsZoneId string = ''
+
+// tags
+
+@description('''
+Optional. The tags to be assigned to the resources deployed by this template.
+Must be provided in the following 'TagsByResource' format: (JSON)
+{
+  "Microsoft.Storage/storageAccounts": {
+    "key1": "value1",
+    "key2": "value2"
+  },
+  "Microsoft.Web/sites": {
+    "key1": "value1",
+    "key2": "value2"
+  },
+  "Microsoft.Web/serverfarms": {
+    "key1": "value1",
+    "key2": "value2"
+  },
+  {
+    "Microsoft.Network/privateEndpoints" : {
+      "key1": "value1",
+      "key2": "value2"
+    }
+  },
+  {
+    "Microsoft.Network/virtualNetworks" : {
+      "key1": "value1",
+      "key2": "value2"
+    }
+  }
+}
+''')
 param tags object = {}
 
 var hostingPlanSku = {
@@ -118,27 +191,7 @@ var windowsAppSettings = {
 var appSettingsTemp = functionAppKind == 'functionapp' ? union(commonAppSettings, windowsAppSettings) : commonAppSettings
 var appSettings = contains(runtimeStack, 'isolated') ? union(appSettingsTemp, isolatedAppSettings) : appSettingsTemp
 
-var functionAppDiagnosticLogCategoriesToEnable = functionAppKind == 'functionapp' ? [
-  'FunctionAppLogs'
-] : [
-  'AppServiceHTTPLogs'
-  'AppServiceConsoleLogs'
-  'AppServiceAppLogs'
-  'AppServiceAuditLogs'
-  'AppServiceIPSecAuditLogs'
-  'AppServicePlatformLogs'
-]
-
-var diagnosticsLogsSpecified = [for category in functionAppDiagnosticLogCategoriesToEnable: {
-  category: category
-  enabled: true
-  retentionPolicy: {
-    enabled: true
-    days: 30
-  }
-}]
-
-var storagePrivateEndpoints = [
+var storagePrivateEndpoints = enableNetworkInjection ? [
   {
     name: 'pe-${storageAccountName}-blob'
     privateDnsZoneId: storageBlobDnsZoneId 
@@ -159,10 +212,61 @@ var storagePrivateEndpoints = [
     privateDnsZoneId: storageTableDnsZoneId
     service: 'table'
   }
+] : []
+
+var subnetsCommon = [
+  {
+    name: functionAppOutboundSubnetName
+    properties: {
+      privateEndpointNetworkPolicies: 'Enabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+      delegations: [
+        {
+          name: 'webapp'
+          properties: {
+            serviceName: 'Microsoft.Web/serverFarms'
+          }
+        }
+      ]
+      addressPrefix: functionAppOutboundSubnetAddressPrefix
+    }
+  }
+  {
+    name: storagePrivateEndpointSubnetName
+    properties: {
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+      addressPrefix: storagePrivateEndpointSubnetAddressPrefix
+    }
+  }
 ]
 
+var subnetsPublicAccessDisabled = [
+  {
+    name: functionAppInboundSubnetName
+    properties: {
+      privateEndpointNetworkPolicies: 'Disabled'
+      privateLinkServiceNetworkPolicies: 'Enabled'
+      addressPrefix: functionAppInboundSubnetAddressPrefix
+    }
+  }
+]
+
+resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = if( enableNetworkInjection && !empty(vnetName) ) {
+  name: !empty(vnetName) ? vnetName : 'vnet-${functionAppName}'
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        vnetAddressPrefix
+      ]
+    }
+    subnets: enablePublicAccess ? subnetsCommon : union(subnetsCommon, subnetsPublicAccessDisabled)
+  }
+}
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: storageAccountName
+  name: toLower(storageAccountName)
   location: location
   tags: contains(tags, 'Microsoft.Storage/storageAccounts') ? tags['Microsoft.Storage/storageAccounts'] : {}
   sku: {
@@ -172,7 +276,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    allowedCopyScope: 'Blob'
+    allowedCopyScope: 'PrivateLink'
     allowCrossTenantReplication: false
     allowSharedKeyAccess: false
     defaultToOAuthAuthentication: false
@@ -202,7 +306,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
       ipRules: []
       virtualNetworkRules: []
     }
-    publicNetworkAccess: 'Disabled'
+    publicNetworkAccess: enableNetworkInjection ? 'Disabled' : 'Enabled'
     sasPolicy: {
       expirationAction: 'Log'
       sasExpirationPeriod: '180.00:00:00'
@@ -223,7 +327,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
-resource storageAccountPrivateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storagePrivateEndpoints:{
+resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableNetworkInjection) {
   name: privateEndpoint.name
   location: location
   tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : {}
@@ -238,14 +342,14 @@ resource storageAccountPrivateEndpoints 'Microsoft.Network/privateEndpoints@2021
       }
     ]
     subnet: {
-      id: storagePrivateEndpointSubnetResourceId
+      id: !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : vnet.properties.subnets[1].id
     }      
   }
 }]
 
-resource storageAccountPrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storagePrivateEndpoints:{
+resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableNetworkInjection) {
   name: '${privateEndpoint.name}-group'
-  parent: storageAccountPrivateEndpoints[i]
+  parent: storageAccount_privateEndpoints[i]
   properties: {
     privateDnsZoneConfigs: [
       {
@@ -333,16 +437,16 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   location: location
   tags: contains(tags, 'Microsoft.Web/sites') ? tags['Microsoft.Web/sites'] : {}
   properties: {
-    publicNetworkAccess: functionAppEnablePublicAccess ? 'Enabled' : 'Disabled'
+    publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
     serverFarmId: !empty(hostingPlanExistingResourceId) ? hostingPlanExistingResourceId : ( hostingPlanType != 'Consumption' ? hostingPlan.id : null )
     siteConfig: {
       linuxFxVersion: contains(functionAppKind, 'linux') ? '${runtimeStack}|${runtimeVersion}' : null
       netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${runtimeVersion}' : null
     }
-    virtualNetworkSubnetId: functionAppOutputSubnetResourceId
-    vnetImagePullEnabled: true
-    vnetContentShareEnabled: true
-    vnetRouteAllEnabled: true
+    virtualNetworkSubnetId: enableNetworkInjection ? (!empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : vnet.properties.subnets[0].id) : null
+    vnetImagePullEnabled: enableNetworkInjection ? true : false
+    vnetContentShareEnabled: enableNetworkInjection ? true : false
+    vnetRouteAllEnabled: enableNetworkInjection ? true : false
   }
 }
 
@@ -353,7 +457,7 @@ resource functionAppSettings 'Microsoft.Web/sites/config@2022-09-01' = {
   properties: appSettings
 }
 
-resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(!functionAppEnablePublicAccess) {
+resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(!enablePublicAccess) {
   name: 'pe-${functionAppName}-sites'
   location: location
   tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : {}
@@ -368,12 +472,12 @@ resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02
       }
     ]
     subnet: {
-      id: functionAppEnablePublicAccess || empty(functionAppInboundSubnetResourceId) ? null : functionAppInboundSubnetResourceId 
+      id: enablePublicAccess ? null : !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : vnet.properties.subnets[2].id
     }      
   }
 }
 
-resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if(!functionAppEnablePublicAccess) {
+resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if(!enablePublicAccess) {
   name: 'pe-${functionAppName}-sites-group'
   parent: functionApp_PrivateEndpoint
   properties: {
@@ -381,7 +485,7 @@ resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/pri
       {
         name: !empty(functionAppPrivateDnsZoneResourceId) ? '${last(split(functionAppPrivateDnsZoneResourceId, '/'))}-config' : null
         properties: {
-          privateDnsZoneId: functionAppEnablePublicAccess || empty(functionAppPrivateDnsZoneResourceId) ? null : functionAppPrivateDnsZoneResourceId
+          privateDnsZoneId: enablePublicAccess || empty(functionAppPrivateDnsZoneResourceId) ? null : functionAppPrivateDnsZoneResourceId
         }
       }
     ]
@@ -391,15 +495,16 @@ resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/pri
 resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
   name: '${functionAppName}-diagnosticSettings'
   properties: {
-    logs: diagnosticsLogsSpecified
+    logs: [
+      {
+        category: 'FunctionAppLogs'
+        enabled: true
+      }
+    ]
     metrics: [
       {
         category: 'AllMetrics'
         enabled: true
-        retentionPolicy: {
-          enabled: true
-          days: 30
-        }
       }
     ]
     workspaceId: logAnalyticsWorkspaceId

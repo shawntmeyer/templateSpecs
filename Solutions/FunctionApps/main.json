@@ -1,0 +1,641 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.25.3.34343",
+      "templateHash": "15660080457983313312"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Optional. The location of all resources deployed by this template."
+      }
+    },
+    "functionAppName": {
+      "type": "string",
+      "metadata": {
+        "description": "Required. The name of the function App."
+      }
+    },
+    "functionAppKind": {
+      "type": "string",
+      "defaultValue": "functionapp,linux",
+      "allowedValues": [
+        "functionapp",
+        "functionapp,linux"
+      ],
+      "metadata": {
+        "description": "Optional. The type of site to deploy"
+      }
+    },
+    "runtimeStack": {
+      "type": "string",
+      "defaultValue": "dotnet-isolated",
+      "allowedValues": [
+        "dotnet",
+        "dotnet-isolated",
+        "java",
+        "node",
+        "powershell",
+        "python"
+      ],
+      "metadata": {
+        "description": "Optional. The runtime stack used by the function App."
+      }
+    },
+    "runtimeVersion": {
+      "type": "string",
+      "defaultValue": "6.0",
+      "metadata": {
+        "description": "Optional. The version of the runtime stack used by the function App. The version must be compatible with the runtime stack."
+      }
+    },
+    "hostingPlanType": {
+      "type": "string",
+      "defaultValue": "FunctionsPremium",
+      "allowedValues": [
+        "Consumption",
+        "FunctionsPremium",
+        "AppServicePlan"
+      ],
+      "metadata": {
+        "description": "Optional. When you create a function app in Azure, you must choose a hosting plan for your app.\r\nThere are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. \r\n* Consumption: Scale automatically and only pay for compute resources when your functions are running.\r\n* FunctionsPremium: Automatically scales based on demand using pre-warmed workers, which run applications with no delay after being idle, runs on more powerful instances, and connects to virtual networks.\r\n* AppServicePlan: Best for long-running scenarios where Durable Functions can't be used. Consider an App Service plan in the following situations:\r\n  * You have existing, underutilized VMs that are already running other App Service instances.\r\n  * Predictive scaling and costs are required.\r\n"
+      }
+    },
+    "hostingPlanExistingResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the existing server farm to use for the function App."
+      }
+    },
+    "functionHostingPlanName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The name of the service plan used by the function App. Not used when \"hostingPlanExistingResourceId\" is provided or hostingPlanType is set to \"Consumption\"."
+      }
+    },
+    "hostingPlanPricing": {
+      "type": "string",
+      "defaultValue": "ElasticPremium_EP1",
+      "allowedValues": [
+        "ElasticPremium_EP1",
+        "Basic_B1",
+        "Standard_S1",
+        "PremiumV3_P1V3",
+        "PremiumV3_P2V3",
+        "PremiumV3_P3V3"
+      ],
+      "metadata": {
+        "description": "Optional. The hosting plan pricing plan. Not used when \"hostingPlanExistingResourceId\" is provided or hostingPlanType is set to \"Consumption\"."
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Required. The name of the storage account used by the function App."
+      }
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional. To enable diagnostics settings, provide the resource Id of the Log Analytics workspace where logs are to be sent."
+      }
+    },
+    "enableNetworkInjection": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Indicates whether outbound traffic from the function App should be routed through a private endpoint."
+      }
+    },
+    "enablePublicAccess": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Indicates whether the function App should be accessible from the public network."
+      }
+    },
+    "functionAppInboundSubnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when \"enablePublicAccess\" is set to false and you aren't creating a new vnet and subnets."
+      }
+    },
+    "functionAppOutboundSubnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the subnet used by the function App for outbound traffic. Required when \"enableNetworkInjection\" is set to true and you aren't creating a new vnet and subnets."
+      }
+    },
+    "storagePrivateEndpointSubnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional The resource Id of the private Endpoint Subnet. Required when \"enableNetworkInjection\" is set to true and you aren't creating a new vnet and subnets."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The name of the virtual network used for Virtual Network Integration. Required when \"enableNetworkInjection\" is set to true and you aren't providing the resource Id of an existing virtual network."
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.0.0/16",
+      "metadata": {
+        "description": "Optional. The address prefix of the virtual network used Virtual Network Integration."
+      }
+    },
+    "functionAppOutboundSubnetName": {
+      "type": "string",
+      "defaultValue": "fa-outbound-subnet",
+      "metadata": {
+        "description": "Optional. The name of the subnet used by the function App for Virtual Network Integration."
+      }
+    },
+    "functionAppOutboundSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.0.0/24",
+      "metadata": {
+        "description": "Optional. The address prefix of the subnet used by the function App for Virtual Network Integration."
+      }
+    },
+    "storagePrivateEndpointSubnetName": {
+      "type": "string",
+      "defaultValue": "storage-subnet",
+      "metadata": {
+        "description": "Optional. The name of the subnet used for private Endpoints."
+      }
+    },
+    "storagePrivateEndpointSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.1.0/24",
+      "metadata": {
+        "description": "Optional. The address prefix of the subnet used for private Endpoints."
+      }
+    },
+    "functionAppInboundSubnetName": {
+      "type": "string",
+      "defaultValue": "fa-inbound-subnet",
+      "metadata": {
+        "description": "Optional. The name of the subnet used by the function App for inbound access when public access is disabled."
+      }
+    },
+    "functionAppInboundSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.0.2.0/24",
+      "metadata": {
+        "description": "Optional. The address prefix of the subnet used by the function App for inbound access when public access is disabled."
+      }
+    },
+    "functionAppPrivateDnsZoneResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the function app private DNS Zone. Required when \"enablePublicAccess\" is set to false."
+      }
+    },
+    "storageBlobDnsZoneId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the blob storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true."
+      }
+    },
+    "storageFileDnsZoneId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the file storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true."
+      }
+    },
+    "storageQueueDnsZoneId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the queue storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true."
+      }
+    },
+    "storageTableDnsZoneId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Conditional. The resource Id of the table storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Optional. The tags to be assigned to the resources deployed by this template.\r\nMust be provided in the following 'TagsByResource' format: (JSON)\r\n{\r\n  \"Microsoft.Storage/storageAccounts\": {\r\n    \"key1\": \"value1\",\r\n    \"key2\": \"value2\"\r\n  },\r\n  \"Microsoft.Web/sites\": {\r\n    \"key1\": \"value1\",\r\n    \"key2\": \"value2\"\r\n  },\r\n  \"Microsoft.Web/serverfarms\": {\r\n    \"key1\": \"value1\",\r\n    \"key2\": \"value2\"\r\n  },\r\n  {\r\n    \"Microsoft.Network/privateEndpoints\" : {\r\n      \"key1\": \"value1\",\r\n      \"key2\": \"value2\"\r\n    }\r\n  },\r\n  {\r\n    \"Microsoft.Network/virtualNetworks\" : {\r\n      \"key1\": \"value1\",\r\n      \"key2\": \"value2\"\r\n    }\r\n  }\r\n}\r\n"
+      }
+    }
+  },
+  "variables": {
+    "hostingPlanSku": {
+      "name": "[split(parameters('hostingPlanPricing'), '_')[1]]",
+      "tier": "[split(parameters('hostingPlanPricing'), '_')[0]]"
+    },
+    "isolatedAppSettings": {
+      "WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED": "1"
+    },
+    "windowsAppSettings": {
+      "WEBSITE_NODE_DEFAULT_VERSION": "[format('~{0}', parameters('runtimeVersion'))]"
+    },
+    "storagePrivateEndpoints": "[if(parameters('enableNetworkInjection'), createArray(createObject('name', format('pe-{0}-blob', parameters('storageAccountName')), 'privateDnsZoneId', parameters('storageBlobDnsZoneId'), 'service', 'blob'), createObject('name', format('pe-{0}-file', parameters('storageAccountName')), 'privateDnsZoneId', parameters('storageFileDnsZoneId'), 'service', 'file'), createObject('name', format('pe-{0}-queue', parameters('storageAccountName')), 'privateDnsZoneId', parameters('storageQueueDnsZoneId'), 'service', 'queue'), createObject('name', format('pe-{0}-table', parameters('storageAccountName')), 'privateDnsZoneId', parameters('storageTableDnsZoneId'), 'service', 'table')), createArray())]",
+    "subnetsCommon": [
+      {
+        "name": "[parameters('functionAppOutboundSubnetName')]",
+        "properties": {
+          "privateEndpointNetworkPolicies": "Enabled",
+          "privateLinkServiceNetworkPolicies": "Enabled",
+          "delegations": [
+            {
+              "name": "webapp",
+              "properties": {
+                "serviceName": "Microsoft.Web/serverFarms"
+              }
+            }
+          ],
+          "addressPrefix": "[parameters('functionAppOutboundSubnetAddressPrefix')]"
+        }
+      },
+      {
+        "name": "[parameters('storagePrivateEndpointSubnetName')]",
+        "properties": {
+          "privateEndpointNetworkPolicies": "Disabled",
+          "privateLinkServiceNetworkPolicies": "Enabled",
+          "addressPrefix": "[parameters('storagePrivateEndpointSubnetAddressPrefix')]"
+        }
+      }
+    ],
+    "subnetsPublicAccessDisabled": [
+      {
+        "name": "[parameters('functionAppInboundSubnetName')]",
+        "properties": {
+          "privateEndpointNetworkPolicies": "Disabled",
+          "privateLinkServiceNetworkPolicies": "Enabled",
+          "addressPrefix": "[parameters('functionAppInboundSubnetAddressPrefix')]"
+        }
+      }
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}/{2}', toLower(parameters('storageAccountName')), 'default', toLower(parameters('functionAppName')))]",
+      "properties": {
+        "enabledProtocols": "SMB",
+        "shareQuota": 5120
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices', toLower(parameters('storageAccountName')), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}', toLower(parameters('storageAccountName')), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}', toLower(parameters('storageAccountName')), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]"
+      ]
+    },
+    {
+      "condition": "[and(parameters('enableNetworkInjection'), not(empty(parameters('vnetName'))))]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2022-05-01",
+      "name": "[if(not(empty(parameters('vnetName'))), parameters('vnetName'), format('vnet-{0}', parameters('functionAppName')))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": "[if(parameters('enablePublicAccess'), variables('subnetsCommon'), union(variables('subnetsCommon'), variables('subnetsPublicAccessDisabled')))]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[toLower(parameters('storageAccountName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[if(contains(parameters('tags'), 'Microsoft.Storage/storageAccounts'), parameters('tags')['Microsoft.Storage/storageAccounts'], createObject())]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot",
+        "allowBlobPublicAccess": false,
+        "allowedCopyScope": "PrivateLink",
+        "allowCrossTenantReplication": false,
+        "allowSharedKeyAccess": false,
+        "defaultToOAuthAuthentication": false,
+        "encryption": {
+          "keySource": "Microsoft.Storage",
+          "requireInfrastructureEncryption": true,
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            },
+            "queue": {
+              "enabled": true
+            },
+            "table": {
+              "enabled": true
+            }
+          }
+        },
+        "largeFileSharesState": "Enabled",
+        "minimumTlsVersion": "TLS1_2",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny",
+          "ipRules": [],
+          "virtualNetworkRules": []
+        },
+        "publicNetworkAccess": "[if(parameters('enableNetworkInjection'), 'Disabled', 'Enabled')]",
+        "sasPolicy": {
+          "expirationAction": "Log",
+          "sasExpirationPeriod": "180.00:00:00"
+        }
+      }
+    },
+    {
+      "copy": {
+        "name": "storageAccount_privateEndpoints",
+        "count": "[length(variables('storagePrivateEndpoints'))]"
+      },
+      "condition": "[parameters('enableNetworkInjection')]",
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2021-02-01",
+      "name": "[variables('storagePrivateEndpoints')[copyIndex()].name]",
+      "location": "[parameters('location')]",
+      "tags": "[if(contains(parameters('tags'), 'Microsoft.Network/privateEndpoints'), parameters('tags')['Microsoft.Network/privateEndpoints'], createObject())]",
+      "properties": {
+        "privateLinkServiceConnections": [
+          {
+            "name": "[format('{0}-connection', variables('storagePrivateEndpoints')[copyIndex()].name)]",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]",
+              "groupIds": [
+                "[variables('storagePrivateEndpoints')[copyIndex()].service]"
+              ]
+            }
+          }
+        ],
+        "subnet": {
+          "id": "[if(not(empty(parameters('storagePrivateEndpointSubnetId'))), parameters('storagePrivateEndpointSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', if(not(empty(parameters('vnetName'))), parameters('vnetName'), format('vnet-{0}', parameters('functionAppName')))), '2022-05-01').subnets[1].id)]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', if(not(empty(parameters('vnetName'))), parameters('vnetName'), format('vnet-{0}', parameters('functionAppName'))))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "storageAccount_PrivateDnsZoneGroups",
+        "count": "[length(variables('storagePrivateEndpoints'))]"
+      },
+      "condition": "[parameters('enableNetworkInjection')]",
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2023-06-01",
+      "name": "[format('{0}/{1}', variables('storagePrivateEndpoints')[copyIndex()].name, format('{0}-group', variables('storagePrivateEndpoints')[copyIndex()].name))]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "[format('{0}-config', last(split(variables('storagePrivateEndpoints')[copyIndex()].privateDnsZoneId, '/')))]",
+            "properties": {
+              "privateDnsZoneId": "[variables('storagePrivateEndpoints')[copyIndex()].privateDnsZoneId]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateEndpoints', variables('storagePrivateEndpoints')[copyIndex()].name)]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('logAnalyticsWorkspaceId')))]",
+      "type": "Microsoft.Insights/diagnosticSettings",
+      "apiVersion": "2021-05-01-preview",
+      "scope": "[format('Microsoft.Storage/storageAccounts/{0}', toLower(parameters('storageAccountName')))]",
+      "name": "[format('{0}-diagnosticSettings', parameters('storageAccountName'))]",
+      "properties": {
+        "metrics": [
+          {
+            "category": "Transaction",
+            "enabled": true
+          }
+        ],
+        "workspaceId": "[parameters('logAnalyticsWorkspaceId')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('logAnalyticsWorkspaceId')))]",
+      "type": "Microsoft.Insights/diagnosticSettings",
+      "apiVersion": "2021-05-01-preview",
+      "scope": "[format('Microsoft.Storage/storageAccounts/{0}/blobServices/{1}', toLower(parameters('storageAccountName')), 'default')]",
+      "name": "[format('{0}-logs', parameters('storageAccountName'))]",
+      "properties": {
+        "workspaceId": "[parameters('logAnalyticsWorkspaceId')]",
+        "logs": [
+          {
+            "category": "StorageWrite",
+            "enabled": true
+          }
+        ],
+        "metrics": [
+          {
+            "category": "Transaction",
+            "enabled": true
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', toLower(parameters('storageAccountName')), 'default')]"
+      ]
+    },
+    {
+      "condition": "[and(not(equals(parameters('hostingPlanType'), 'Consumption')), empty(parameters('hostingPlanExistingResourceId')))]",
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('functionHostingPlanName')]",
+      "location": "[parameters('location')]",
+      "sku": "[variables('hostingPlanSku')]",
+      "tags": "[if(contains(parameters('tags'), 'Microsoft.Web/serverfarms'), parameters('tags')['Microsoft.Web/serverfarms'], createObject())]",
+      "properties": {
+        "maximumElasticWorkerCount": "[if(equals(parameters('functionAppKind'), 'FunctionsPremium'), 20, null())]",
+        "reserved": "[if(contains(parameters('functionAppKind'), 'linux'), true(), false())]"
+      }
+    },
+    {
+      "condition": "[and(not(equals(parameters('hostingPlanType'), 'Consumption')), empty(parameters('hostingPlanExistingResourceId')))]",
+      "type": "Microsoft.Insights/diagnosticSettings",
+      "apiVersion": "2021-05-01-preview",
+      "scope": "[format('Microsoft.Web/serverfarms/{0}', parameters('functionHostingPlanName'))]",
+      "name": "[format('{0}-diagnosticSettings', parameters('functionHostingPlanName'))]",
+      "properties": {
+        "metrics": [
+          {
+            "category": "AllMetrics",
+            "enabled": true
+          }
+        ],
+        "workspaceId": "[parameters('logAnalyticsWorkspaceId')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('functionHostingPlanName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('logAnalyticsWorkspaceId')))]",
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[format('{0}-insights', parameters('functionAppName'))]",
+      "kind": "web",
+      "location": "[parameters('location')]",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]"
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('functionAppName')]",
+      "kind": "[parameters('functionAppKind')]",
+      "location": "[parameters('location')]",
+      "tags": "[if(contains(parameters('tags'), 'Microsoft.Web/sites'), parameters('tags')['Microsoft.Web/sites'], createObject())]",
+      "properties": {
+        "publicNetworkAccess": "[if(parameters('enablePublicAccess'), 'Enabled', 'Disabled')]",
+        "serverFarmId": "[if(not(empty(parameters('hostingPlanExistingResourceId'))), parameters('hostingPlanExistingResourceId'), if(not(equals(parameters('hostingPlanType'), 'Consumption')), resourceId('Microsoft.Web/serverfarms', parameters('functionHostingPlanName')), null()))]",
+        "siteConfig": {
+          "linuxFxVersion": "[if(contains(parameters('functionAppKind'), 'linux'), format('{0}|{1}', parameters('runtimeStack'), parameters('runtimeVersion')), null())]",
+          "netFrameworkVersion": "[if(and(not(contains(parameters('functionAppKind'), 'linux')), contains(parameters('runtimeStack'), 'dotnet')), format('v{0}', parameters('runtimeVersion')), null())]"
+        },
+        "virtualNetworkSubnetId": "[if(parameters('enableNetworkInjection'), if(not(empty(parameters('functionAppOutboundSubnetId'))), parameters('functionAppOutboundSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', if(not(empty(parameters('vnetName'))), parameters('vnetName'), format('vnet-{0}', parameters('functionAppName')))), '2022-05-01').subnets[0].id), null())]",
+        "vnetImagePullEnabled": "[if(parameters('enableNetworkInjection'), true(), false())]",
+        "vnetContentShareEnabled": "[if(parameters('enableNetworkInjection'), true(), false())]",
+        "vnetRouteAllEnabled": "[if(parameters('enableNetworkInjection'), true(), false())]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('functionHostingPlanName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', if(not(empty(parameters('vnetName'))), parameters('vnetName'), format('vnet-{0}', parameters('functionAppName'))))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2022-09-01",
+      "name": "[format('{0}/{1}', parameters('functionAppName'), 'appsettings')]",
+      "kind": "[parameters('functionAppKind')]",
+      "properties": "[if(contains(parameters('runtimeStack'), 'isolated'), union(if(equals(parameters('functionAppKind'), 'functionapp'), union(createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').ConnectionString, 'APPINSIGHTS_INSTRUMENTATIONKEY', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').InstrumentationKey, 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', parameters('runtimeStack')), variables('windowsAppSettings')), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').ConnectionString, 'APPINSIGHTS_INSTRUMENTATIONKEY', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').InstrumentationKey, 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', parameters('runtimeStack'))), variables('isolatedAppSettings')), if(equals(parameters('functionAppKind'), 'functionapp'), union(createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').ConnectionString, 'APPINSIGHTS_INSTRUMENTATIONKEY', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').InstrumentationKey, 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', parameters('runtimeStack')), variables('windowsAppSettings')), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').ConnectionString, 'APPINSIGHTS_INSTRUMENTATIONKEY', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').InstrumentationKey, 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', parameters('runtimeStack'))))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName')))]",
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]"
+      ]
+    },
+    {
+      "condition": "[not(parameters('enablePublicAccess'))]",
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2021-02-01",
+      "name": "[format('pe-{0}-sites', parameters('functionAppName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[if(contains(parameters('tags'), 'Microsoft.Network/privateEndpoints'), parameters('tags')['Microsoft.Network/privateEndpoints'], createObject())]",
+      "properties": {
+        "privateLinkServiceConnections": [
+          {
+            "name": "[format('pe-{0}-sites-connection', parameters('functionAppName'))]",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+              "groupIds": [
+                "sites"
+              ]
+            }
+          }
+        ],
+        "subnet": {
+          "id": "[if(parameters('enablePublicAccess'), null(), if(not(empty(parameters('functionAppInboundSubnetId'))), parameters('functionAppInboundSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', if(not(empty(parameters('vnetName'))), parameters('vnetName'), format('vnet-{0}', parameters('functionAppName')))), '2022-05-01').subnets[2].id))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', if(not(empty(parameters('vnetName'))), parameters('vnetName'), format('vnet-{0}', parameters('functionAppName'))))]"
+      ]
+    },
+    {
+      "condition": "[not(parameters('enablePublicAccess'))]",
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2023-06-01",
+      "name": "[format('{0}/{1}', format('pe-{0}-sites', parameters('functionAppName')), format('pe-{0}-sites-group', parameters('functionAppName')))]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "[if(not(empty(parameters('functionAppPrivateDnsZoneResourceId'))), format('{0}-config', last(split(parameters('functionAppPrivateDnsZoneResourceId'), '/'))), null())]",
+            "properties": {
+              "privateDnsZoneId": "[if(or(parameters('enablePublicAccess'), empty(parameters('functionAppPrivateDnsZoneResourceId'))), null(), parameters('functionAppPrivateDnsZoneResourceId'))]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-sites', parameters('functionAppName')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('logAnalyticsWorkspaceId')))]",
+      "type": "Microsoft.Insights/diagnosticSettings",
+      "apiVersion": "2021-05-01-preview",
+      "scope": "[format('Microsoft.Web/sites/{0}', parameters('functionAppName'))]",
+      "name": "[format('{0}-diagnosticSettings', parameters('functionAppName'))]",
+      "properties": {
+        "logs": [
+          {
+            "category": "FunctionAppLogs",
+            "enabled": true
+          }
+        ],
+        "metrics": [
+          {
+            "category": "AllMetrics",
+            "enabled": true
+          }
+        ],
+        "workspaceId": "[parameters('logAnalyticsWorkspaceId')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,693 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2021-09-09/uiFormDefinition.schema.json",
+    "view": {
+        "kind": "Form",
+        "properties": {
+            "title": "Function App",
+            "steps": [
+                {
+                    "name": "basics",
+                    "label": "Basics",
+                    "elements": [
+						{
+							"name": "textBlock1",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": true,
+							"options": {
+								"text": "This template deploys a function app limited to code (it cannot do Container Images), which lets you group functions as a logical unit for easier management, deployment and sharing of resources. Functions lets you execute your code in a serverless environment without having to first create a VM or publish a web application.",
+								"link": {
+									"label": "Learn more",
+									"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-overview"
+								}
+							}
+						},
+                        {
+                            "name": "resourceScope",
+                            "type": "Microsoft.Common.ResourceScope",
+                            "location": {
+                                "resourceTypes": [
+                                    "microsoft.web/sites"
+                                ]
+                            }
+                        },
+						{
+							"name": "name_checkNameAvailability",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "POST",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Web/checkNameAvailability?api-version=2022-03-01')]",
+								"body": {
+									"name": "[steps('basics').name]",
+									"type": "Microsoft.Web/sites"
+								}
+							}
+						},
+						{
+							"name": "name_rePUT",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').name,'?api-version=2022-03-01')]",
+								"body": {}
+							}
+						},
+						{
+							"name": "name",
+							"type": "Microsoft.Common.TextBox",
+							"label": "Function App Name",
+							"subLabel": "azurewebsites.net",
+							"defaultValue": "",
+							"toolTip": "Required. The name of the function App. The name must be globally unique for the namespace 'azurewebsites.net'.",
+							"constraints": {
+								"required": true,
+								"validations":[
+									{
+										"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists'))]",
+										"message": "[steps('basics').name_checkNameAvailability.message]"
+									},
+									{
+										"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_rePUT.id,concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').name)),not(equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists')))]",
+										"message": "[steps('basics').name_checkNameAvailability.message]"
+									}
+								]
+							},
+							"visible": true
+						},
+                        {
+                            "name": "runtimeStack",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Runtime stack",
+                            "subLabel": "",
+                            "defaultValue": ".NET (Isolated)",
+                            "toolTip": "The runtime stack used by the function App.",
+                            "constraints": {
+                                "required": true,
+                                "allowedValues": [
+                                    {
+                                        "label": ".NET",
+                                        "value": "dotnet"
+                                    },
+                                    {
+                                        "label": ".NET (Isolated)",
+                                        "value": "dotnet-isolated"
+                                    },
+									{
+                                        "label": "Node.js",
+                                        "value": "node"
+                                    },
+									{
+                                        "label": "Python",
+                                        "value": "python"
+                                    },
+                                    {
+                                        "label": "Java",
+                                        "value": "java"
+                                    },
+                                    {
+                                        "label": "Powershell Core",
+                                        "value": "powershell"
+                                    }
+                                ],
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "runtimeVersion",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Runtime Version",
+                            "subLabel": "",
+                            "defaultValue": "6.0",
+                            "toolTip": "The version of the runtime stack used by the function App. The version must be compatible with the runtime stack.",
+                            "constraints": {
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+						{
+							"name": "os",
+							"type": "Microsoft.Common.Section",
+							"label": "Operating System",
+							"elements": [
+								{
+									"name": "textBlock1",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "The Operating System has been recommended for you based on your selection of runtime stack."
+									}
+								},							
+								{
+									"name": "functionAppKind",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "OperatingSystem",
+									"defaultValue": "[if(equals(steps('basics').runtimeStack, 'python'), 'Linux', 'Windows')]",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Windows",
+												"value": "functionapp"
+											},
+											{
+												"label": "Linux",
+												"value": "functionapp,linux"
+											}
+										]
+									},
+									"visible": true
+								}
+							],
+							"visible": true
+						},
+
+
+						{
+							"name": "hosting",
+							"type": "Microsoft.Common.Section",
+							"label": "Hosting",
+							"elements": [
+								{
+									"name": "hostingTextBlock1",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "The plan you choose dictates how your app scales, what features are enabled, and how it is priced.",
+										"link": {
+											"label": "Learn more",
+											"uri": "https://learn.microsoft.com/azure/azure-functions/functions-scale"
+										}
+									}
+								},
+								{
+									"name": "hostingPlanType",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Hosting options and plans",
+									"multiLine": true,
+									"defaultValue": "FunctionsPremium",
+									"toolTip": "Select 'Consumption' for serverless and event-driven scaling for the lowest minimum cost, 'Premium' for enterprise-level, serverless applications with event-based scaling and network isolation, or 'App Service Plan' for reusing compute from existing app service plan.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "Consumption (Serverless)",
+												"description": "Optimized for serverless and event-driven workloads.",
+												"value": "Consumption"
+											},
+											{
+												"label": "Functions Premium",
+												"description": "Event based scaling and network isolation, ideal for workloads running continuously.",
+												"value": "FunctionsPremium"
+											},
+											{
+												"label": "App service plan",
+												"description": "Fully isolated and dedicated environment suitable for workloads that need large SKUs or need to co-locate Web Apps and Functions.",
+												"value": "AppServicePlan"
+											}
+										]
+									},
+									"infoMessages": [],
+									"visible": true
+								}
+							],
+							"visible": true
+						},
+
+                        {
+                            "name": "functionHostingPlanName",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function Hosting Plan Name",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The name of the service plan used by the function App. Not used when \"hostingPlanExistingResourceId\" is provided or hostingPlanType is set to \"Consumption\".",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+						{
+                            "name": "hostingPlanExistingResourceId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Hosting Plan Existing Resource Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the existing server farm to use for the function App.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+
+                        {
+                            "name": "hostingPlanPricing",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Hosting Plan Pricing",
+                            "subLabel": "",
+                            "defaultValue": "ElasticPremium_EP1",
+                            "toolTip": "Optional. The hosting plan pricing plan. Not used when \"hostingPlanExistingResourceId\" is provided or hostingPlanType is set to \"Consumption\".",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": [
+                                    {
+                                        "label": "ElasticPremium_EP1",
+                                        "value": "ElasticPremium_EP1"
+                                    },
+                                    {
+                                        "label": "Basic_B1",
+                                        "value": "Basic_B1"
+                                    },
+                                    {
+                                        "label": "Standard_S1",
+                                        "value": "Standard_S1"
+                                    },
+                                    {
+                                        "label": "PremiumV3_P1V3",
+                                        "value": "PremiumV3_P1V3"
+                                    },
+                                    {
+                                        "label": "PremiumV3_P2V3",
+                                        "value": "PremiumV3_P2V3"
+                                    },
+                                    {
+                                        "label": "PremiumV3_P3V3",
+                                        "value": "PremiumV3_P3V3"
+                                    }
+                                ],
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        }
+					]
+				},
+				{
+                    "name": "storage",
+                    "label": "Storage",
+                    "elements": [
+                        {
+                            "name": "storageAccountName",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage Account Name",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Required. The name of the storage account used by the function App.",
+                            "constraints": {
+                                "required": true,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        }
+					]
+				},
+				{
+                    "name": "networking",
+                    "label": "Networking",
+                    "elements": [
+                        {
+                            "name": "enableNetworkInjection",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Enable Network Injection",
+                            "subLabel": "",
+                            "defaultValue": "true",
+                            "toolTip": "Indicates whether outbound traffic from the function App should be routed through a private endpoint.",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": [
+                                    {
+                                        "label": "true",
+                                        "value": true
+                                    },
+                                    {
+                                        "label": "false",
+                                        "value": false
+                                    }
+                                ],
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "enablePublicAccess",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Enable Public Access",
+                            "subLabel": "",
+                            "defaultValue": "true",
+                            "toolTip": "Indicates whether the function App should be accessible from the public network.",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": [
+                                    {
+                                        "label": "true",
+                                        "value": true
+                                    },
+                                    {
+                                        "label": "false",
+                                        "value": false
+                                    }
+                                ],
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "functionAppInboundSubnetId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function App Inbound Subnet Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when \"enablePublicAccess\" is set to false and you aren't creating a new vnet and subnets.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "functionAppOutboundSubnetId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function App Outbound Subnet Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the subnet used by the function App for outbound traffic. Required when \"enableNetworkInjection\" is set to true and you aren't creating a new vnet and subnets.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "storagePrivateEndpointSubnetId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage Private Endpoint Subnet Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional The resource Id of the private Endpoint Subnet. Required when \"enableNetworkInjection\" is set to true and you aren't creating a new vnet and subnets.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "vnetName",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Vnet Name",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The name of the virtual network used for Virtual Network Integration. Required when \"enableNetworkInjection\" is set to true and you aren't providing the resource Id of an existing virtual network.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "vnetAddressPrefix",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Vnet Address Prefix",
+                            "subLabel": "",
+                            "defaultValue": "10.0.0.0/16",
+                            "toolTip": "Optional. The address prefix of the virtual network used Virtual Network Integration.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "functionAppOutboundSubnetName",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function App Outbound Subnet Name",
+                            "subLabel": "",
+                            "defaultValue": "fa-outbound-subnet",
+                            "toolTip": "Optional. The name of the subnet used by the function App for Virtual Network Integration.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "functionAppOutboundSubnetAddressPrefix",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function App Outbound Subnet Address Prefix",
+                            "subLabel": "",
+                            "defaultValue": "10.0.0.0/24",
+                            "toolTip": "Optional. The address prefix of the subnet used by the function App for Virtual Network Integration.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "storagePrivateEndpointSubnetName",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage Private Endpoint Subnet Name",
+                            "subLabel": "",
+                            "defaultValue": "storage-subnet",
+                            "toolTip": "Optional. The name of the subnet used for private Endpoints.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "storagePrivateEndpointSubnetAddressPrefix",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage Private Endpoint Subnet Address Prefix",
+                            "subLabel": "",
+                            "defaultValue": "10.0.1.0/24",
+                            "toolTip": "Optional. The address prefix of the subnet used for private Endpoints.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "functionAppInboundSubnetName",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function App Inbound Subnet Name",
+                            "subLabel": "",
+                            "defaultValue": "fa-inbound-subnet",
+                            "toolTip": "Optional. The name of the subnet used by the function App for inbound access when public access is disabled.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "functionAppInboundSubnetAddressPrefix",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function App Inbound Subnet Address Prefix",
+                            "subLabel": "",
+                            "defaultValue": "10.0.2.0/24",
+                            "toolTip": "Optional. The address prefix of the subnet used by the function App for inbound access when public access is disabled.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "functionAppPrivateDnsZoneResourceId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Function App Private Dns Zone Resource Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the function app private DNS Zone. Required when \"enablePublicAccess\" is set to false.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "storageBlobDnsZoneId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage Blob Dns Zone Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the blob storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "storageFileDnsZoneId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage File Dns Zone Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the file storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "storageQueueDnsZoneId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage Queue Dns Zone Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the queue storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "storageTableDnsZoneId",
+                            "type": "Microsoft.Common.TextBox",
+                            "label": "Storage Table Dns Zone Id",
+                            "subLabel": "",
+                            "defaultValue": "",
+                            "toolTip": "Conditional. The resource Id of the table storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
+                            "constraints": {
+                                "required": false,
+                                "regex": "",
+                                "validationMessage": "",
+                                "validations": []
+                            },
+                            "infoMessages": [],
+                            "visible": true
+                        }
+					]
+				},
+				{
+                    "name": "monitoring",
+                    "label": "Monitoring",
+                    "elements": [
+						{
+							"name": "logAnalyticsWorkspace",
+							"type": "Microsoft.Solutions.ResourceSelector",
+							"label": "Log Analytics Workspace",
+							"resourceType": "Microsoft.OperationalInsights/workspaces",
+							"toolTip": "Select the log analytics workspace to where diagnostic logs are sent."
+						}
+					]
+				},
+				{
+                    "name": "tags",
+                    "label": "Tags",
+                    "elements": [
+                        {
+							"name": "tags",
+							"type": "Microsoft.Common.TagsByResource",
+							"resources": [
+								"Microsoft.Storage/storageAccounts",
+								"Microsoft.Compute/virtualMachines"
+							]
+						}
+                    ]
+                }
+            ]
+        },
+        "outputs": {
+            "kind": "ResourceGroup",
+            "location": "[steps('basics').resourceScope.location.name]",
+            "resourceGroupId": "[steps('basics').resourceScope.resourceGroup.id]",
+            "parameters": {
+                "location": "[steps('basics').resourceScope.location]",
+                "functionAppName": "[steps('basics').name]",
+                "functionAppKind": "[steps('basics').os.functionAppKind]",
+                "runtimeStack": "[steps('basics').runtimeStack]",
+                "runtimeVersion": "[steps('basics').runtimeVersion]",
+                "hostingPlanType": "[steps('basics').hosting.hostingPlanType]",
+                "hostingPlanExistingResourceId": "[steps('basics').hostingPlanExistingResourceId]",
+                "functionHostingPlanName": "[steps('basics').functionHostingPlanName]",
+                "hostingPlanPricing": "[steps('basics').hostingPlanPricing]",
+                "storageAccountName": "[steps('storage').storageAccountName]",
+                "logAnalyticsWorkspaceId": "if(empty(steps('monitoring').logAnalyticsWorkspace), '', steps('monitoring').logAnalyticsWorkspace.id)]",
+                "enableNetworkInjection": "[steps('networking').enableNetworkInjection]",
+                "enablePublicAccess": "[steps('networking').enablePublicAccess]",
+                "functionAppInboundSubnetId": "[steps('networking').functionAppInboundSubnetId]",
+                "functionAppOutboundSubnetId": "[steps('networking').functionAppOutboundSubnetId]",
+                "storagePrivateEndpointSubnetId": "[steps('networking').storagePrivateEndpointSubnetId]",
+                "vnetName": "[steps('networking').vnetName]",
+                "vnetAddressPrefix": "[steps('networking').vnetAddressPrefix]",
+                "functionAppOutboundSubnetName": "[steps('networking').functionAppOutboundSubnetName]",
+                "functionAppOutboundSubnetAddressPrefix": "[steps('networking').functionAppOutboundSubnetAddressPrefix]",
+                "storagePrivateEndpointSubnetName": "[steps('networking').storagePrivateEndpointSubnetName]",
+                "storagePrivateEndpointSubnetAddressPrefix": "[steps('networking').storagePrivateEndpointSubnetAddressPrefix]",
+                "functionAppInboundSubnetName": "[steps('networking').functionAppInboundSubnetName]",
+                "functionAppInboundSubnetAddressPrefix": "[steps('networking').functionAppInboundSubnetAddressPrefix]",
+                "functionAppPrivateDnsZoneResourceId": "[steps('networking').functionAppPrivateDnsZoneResourceId]",
+                "storageBlobDnsZoneId": "[steps('networking').storageBlobDnsZoneId]",
+                "storageFileDnsZoneId": "[steps('networking').storageFileDnsZoneId]",
+                "storageQueueDnsZoneId": "[steps('networking').storageQueueDnsZoneId]",
+                "storageTableDnsZoneId": "[steps('networking').storageTableDnsZoneId]",
+                "tags": "[steps('tags').tags]"
+            }
+        }
+    }
+}
