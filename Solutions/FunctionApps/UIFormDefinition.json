@@ -21,9 +21,42 @@
 								}
 							}
 						},
+						{
+							"name": "textBlock2",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": true,
+							"options": {
+								"text": "The Cloud Adoption Framework (CAF) specifies some best practices when naming resources. Some customers have chosen to reverse the best practice order of naming elements by placing the resource type at the end of the naming convention. Select 'Yes' below to do the same.",
+								"link": {
+									"label": "Learn more",
+									"uri": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/resource-naming"
+								}
+							}
+						},
+						{
+							"name": "nameConvResTypeAtEnd",
+							"type": "Microsoft.Common.OptionsGroup",
+							"label": "Reverse the CAF naming convention.",
+							"defaultValue": "No",
+							"toolTip": "",
+							"constraints": {
+								"allowedValues": [
+									{
+										"label": "Yes",
+										"value": true
+									},
+									{
+										"label": "No",
+										"value": false
+									}
+								]
+							},
+							"visible": true
+						},
                         {
                             "name": "resourceScope",
                             "type": "Microsoft.Common.ResourceScope",
+							"instanceDetailsLabel": "Function App Details",
                             "location": {
                                 "resourceTypes": [
                                     "microsoft.web/sites"
@@ -55,8 +88,7 @@
 							"name": "name",
 							"type": "Microsoft.Common.TextBox",
 							"label": "Function App Name",
-							"subLabel": "azurewebsites.net",
-							"defaultValue": "",
+							"defaultValue": "[if(steps('basics').nameConvResTypeAtEnd, '-func', 'func-')]",
 							"toolTip": "Required. The name of the function App. The name must be globally unique for the namespace 'azurewebsites.net'.",
 							"constraints": {
 								"required": true,
@@ -73,98 +105,70 @@
 							},
 							"visible": true
 						},
+						{
+							"name": "functionAppStacksApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat('/providers/', 'Microsoft.Web/locations/', steps('basics').resourceScope.location.name, '/functionAppStacks?api-version=2022-03-01')]"
+							}
+						},
                         {
-                            "name": "runtimeStack",
+                            "name": "runtimeStackName",
                             "type": "Microsoft.Common.DropDown",
-                            "label": "Runtime stack",
-                            "subLabel": "",
-                            "defaultValue": ".NET (Isolated)",
+                            "label": "Runtime Stack",
+                            "multiLine": true,
                             "toolTip": "The runtime stack used by the function App.",
                             "constraints": {
                                 "required": true,
-                                "allowedValues": [
-                                    {
-                                        "label": ".NET",
-                                        "value": "dotnet"
-                                    },
-                                    {
-                                        "label": ".NET (Isolated)",
-                                        "value": "dotnet-isolated"
-                                    },
-									{
-                                        "label": "Node.js",
-                                        "value": "node"
-                                    },
-									{
-                                        "label": "Python",
-                                        "value": "python"
-                                    },
-                                    {
-                                        "label": "Java",
-                                        "value": "java"
-                                    },
-                                    {
-                                        "label": "Powershell Core",
-                                        "value": "powershell"
-                                    }
-                                ],
-                                "validations": []
+                                "allowedValues": "[map(steps('basics').functionAppStacksApi.value, (item) => parse(concat('{\"label\":\"', item.properties.displayText, '\",\"description\":\"Preferred OS: ', item.properties.preferredOs, '\",\"value\":\"', item.name, '\"}')))]"
                             },
-                            "infoMessages": [],
                             "visible": true
                         },
                         {
-                            "name": "runtimeVersion",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Runtime Version",
-                            "subLabel": "",
-                            "defaultValue": "6.0",
-                            "toolTip": "The version of the runtime stack used by the function App. The version must be compatible with the runtime stack.",
+                            "name": "runtimeStackMajorVersion",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Runtime stack Major Version",
+                            "multiLine": true,
+                            "toolTip": "The runtime stack used by the function App.",
                             "constraints": {
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
+                                "required": false,
+                                "allowedValues": "[map(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.displayText, '\"}')))]"
                             },
-                            "infoMessages": [],
+                            "visible": true
+                        },
+                        {
+                            "name": "runtimeStackMinorVersion",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Runtime Stack Minor Version",
+                            "defaultValue": "[steps('basics').runtimeStackMajorVersion]",
+                            "multiLine": true,
+                            "toolTip": "The runtime stack used by the function App.",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": "[map(first(map(filter(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => equals(item.displayText, steps('basics').runtimeStackMajorVersion)), (item) => item.minorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.value, '\"}')))]"
+                            },
                             "visible": true
                         },
 						{
-							"name": "os",
-							"type": "Microsoft.Common.Section",
+							"name": "osTextBlock1",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": true,
+							"options": {
+								"text": "The Operating System has been recommended for you based on your selection of runtime stack."
+							}
+						},							
+						{
+							"name": "functionAppKind",
+							"type": "Microsoft.Common.OptionsGroup",
 							"label": "Operating System",
-							"elements": [
-								{
-									"name": "textBlock1",
-									"type": "Microsoft.Common.TextBlock",
-									"visible": true,
-									"options": {
-										"text": "The Operating System has been recommended for you based on your selection of runtime stack."
-									}
-								},							
-								{
-									"name": "functionAppKind",
-									"type": "Microsoft.Common.OptionsGroup",
-									"label": "OperatingSystem",
-									"defaultValue": "[if(equals(steps('basics').runtimeStack, 'python'), 'Linux', 'Windows')]",
-									"constraints": {
-										"allowedValues": [
-											{
-												"label": "Windows",
-												"value": "functionapp"
-											},
-											{
-												"label": "Linux",
-												"value": "functionapp,linux"
-											}
-										]
-									},
-									"visible": true
-								}
-							],
+							"defaultValue": "[if(equals(steps('basics').runtimeStackName, 'python'),'Linux', 'Windows')]",
+							"constraints": {
+								"allowedValues": "[if(equals(steps('basics').runtimeStackName, 'python'), parse('[{\"label\":\"Linux\",\"value\":\"functionapp,linux\"}]'), parse('[{\"label\":\"Windows\",\"value\":\"functionapp\"},{\"label\":\"Linux\",\"value\":\"functionapp,linux\"}]'))]"
+									
+							},
 							"visible": true
 						},
-
-
 						{
 							"name": "hosting",
 							"type": "Microsoft.Common.Section",
@@ -187,7 +191,7 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Hosting options and plans",
 									"multiLine": true,
-									"defaultValue": "FunctionsPremium",
+									"defaultValue": "Functions Premium",
 									"toolTip": "Select 'Consumption' for serverless and event-driven scaling for the lowest minimum cost, 'Premium' for enterprise-level, serverless applications with event-based scaling and network isolation, or 'App Service Plan' for reusing compute from existing app service plan.",
 									"constraints": {
 										"required": false,
@@ -211,416 +215,753 @@
 									},
 									"infoMessages": [],
 									"visible": true
-								}
+								},
+								{
+									"name": "newServerFarm",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Deploy a new a App Service Plan to host the Function App.",
+									"defaultValue": "No",
+									"toolTip": "Select 'No' to use an existing server farm. The plans listed will be limited to those which are compatible with the runtime, operating system, and plan type selected.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "No",
+												"value": false
+											},
+											{
+												"label": "Yes",
+												"value": true
+											}
+										],
+										"required": true
+									},
+									"visible": "[not(equals(steps('basics').hosting.hostingPlanType, 'Consumption'))]"
+								},
+								{
+									"name": "serverFarmsApi",
+									"type": "Microsoft.Solutions.ArmApiControl",
+									"request": {
+										"method": "GET",
+										"path": "[concat(steps('basics').resourceScope.subscription.id, '/providers/Microsoft.Web/serverfarms?api-version=2022-03-01')]"
+									}
+								},
+								{
+									"name": "existingHostingPlanId",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Existing App Service Plan",
+									"multiLine": true,
+									"toolTip": "Select the App Service Plan that will host the Function App.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').resourceScope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
+									},
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
+								},
+								{
+									"name": "hostingPlanName",
+									"type": "Microsoft.Common.TextBox",
+									"label": "App Service Plan name",
+									"subLabel": "",
+									"defaultValue": "[if(steps('basics').nameConvResTypeAtEnd, '-asp', 'asp-')]",
+									"toolTip": "The name of the app service plan used by the function App.",
+									"constraints": {
+										"required": true,
+										"regex": "^[0-9a-zA-Z-\\p{L}]{1,60}$",
+										"validationMessage": ""
+									},
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
+								},
+								{
+									"name": "hostingPlanPricing",
+									"type": "Microsoft.Common.DropDown",
+									"label": "App Service Plan pricing",
+									"multiLine": true,									
+									"defaultValue": "Elastic Premium EP1",
+									"toolTip": "Select the hosting plan pricing",
+									"constraints": {
+										"required": false,
+										"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), parse('[{\"label\":\"Elastic Premium EP1\",\"value\":\"ElasticPremium_EP1\"},{\"label\":\"Elastic Premium EP2\",\"value\":\"ElasticPremium_EP2\"},{\"label\":\"Elastic Premium EP3\",\"value\":\"ElasticPremium_EP3\"}]'), if(equals(steps('basics').functionAppKind, 'functionapp'), parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"Standard S1\",\"value\":\"Standard_S1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]'),parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]')))]"
+									},
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
+								},
+								{
+									"name": "geoRegionsApi",
+									"type": "Microsoft.Solutions.ArmApiControl",
+									"request": {
+										"method": "GET",
+										"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Web/geoRegions?api-version=2022-03-01')]"
+									}
+								},
+								{
+									"name": "zoneRedundancyTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').resourceScope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
+									"options": {
+										"text": "An App Service Plan can be deployed as a zone redundant service in the regions that support it. This is a deployment time only decision. You can't make an App Service Plan zone redundant after it has been deployed.",
+										"link": {
+											"label": "Learn more",
+											"uri": "https://go.microsoft.com/fwlink/?linkid=2181427"
+										}
+									}
+								},
+								{
+									"name": "zoneRedundant",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Zone redundancy",
+									"defaultValue": "Disabled: Your App Service Plan and the apps in it will not be zone redundant. The minimum App Service plan instance count will be one.",
+									"toolTip": "",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Enabled: Your App Service plan and the apps in it will be zone redundant. The minimum App Service plan instance count will be three.",
+												"value": true
+											},
+											{
+												"label": "Disabled: Your App Service Plan and the apps in it will not be zone redundant. The minimum App Service plan instance count will be one.",
+												"value": false
+											}
+										]
+									},
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').resourceScope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
+								}	
 							],
 							"visible": true
-						},
-
-                        {
-                            "name": "functionHostingPlanName",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function Hosting Plan Name",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The name of the service plan used by the function App. Not used when \"hostingPlanExistingResourceId\" is provided or hostingPlanType is set to \"Consumption\".",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-						{
-                            "name": "hostingPlanExistingResourceId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Hosting Plan Existing Resource Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the existing server farm to use for the function App.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-
-                        {
-                            "name": "hostingPlanPricing",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Hosting Plan Pricing",
-                            "subLabel": "",
-                            "defaultValue": "ElasticPremium_EP1",
-                            "toolTip": "Optional. The hosting plan pricing plan. Not used when \"hostingPlanExistingResourceId\" is provided or hostingPlanType is set to \"Consumption\".",
-                            "constraints": {
-                                "required": false,
-                                "allowedValues": [
-                                    {
-                                        "label": "ElasticPremium_EP1",
-                                        "value": "ElasticPremium_EP1"
-                                    },
-                                    {
-                                        "label": "Basic_B1",
-                                        "value": "Basic_B1"
-                                    },
-                                    {
-                                        "label": "Standard_S1",
-                                        "value": "Standard_S1"
-                                    },
-                                    {
-                                        "label": "PremiumV3_P1V3",
-                                        "value": "PremiumV3_P1V3"
-                                    },
-                                    {
-                                        "label": "PremiumV3_P2V3",
-                                        "value": "PremiumV3_P2V3"
-                                    },
-                                    {
-                                        "label": "PremiumV3_P3V3",
-                                        "value": "PremiumV3_P3V3"
-                                    }
-                                ],
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        }
+						}								
 					]
 				},
 				{
                     "name": "storage",
                     "label": "Storage",
                     "elements": [
-                        {
-                            "name": "storageAccountName",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage Account Name",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Required. The name of the storage account used by the function App.",
-                            "constraints": {
-                                "required": true,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        }
+						{
+                            "name": "storageApi",
+                            "type": "Microsoft.Solutions.ArmApiControl",
+                            "request": {
+                                "method": "GET",
+                                "path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
+                            }
+                        },
+						{
+							"name": "name_checkNameAvailability",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "POST",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Storage/checkNameAvailability?api-version=2016-01-01')]",
+								"body": {
+									"name": "[steps('storage').name]",
+									"type": "Microsoft.Storage/storageAccounts"
+								}
+							}
+						},
+						{
+							"name": "name_rePUT",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('storage').name,'?api-version=2016-01-01')]",
+								"body": {}
+							}
+						},
+						{
+							"name": "storageTextBlock",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": true,
+							"options": {
+								"text": "When creating a function app, you must create or link to a general-purpose Azure Storage account that supports Blobs, Queue, and Table storage.",
+								"link": {
+									"label": "Learn more",
+									"uri": "https://go.microsoft.com/fwlink/?linkid=2249771"
+								}
+							}
+						},
+						{
+							"name": "name",
+							"type": "Microsoft.Common.TextBox",
+							"label": "Storage Account Name",
+							"defaultValue": "[toLower(replace(replace(steps('basics').name, 'func-', 'st'), '-', ''))]",
+							"toolTip": "Required. Name of the Storage Account.",
+							"constraints": {
+								"required": true,
+								"validations": [
+									{
+										"isValid": "[or(steps('storage').name_checkNameAvailability.nameAvailable,equals(steps('storage').name_checkNameAvailability.reason,'AlreadyExists'))]",
+										"message": "[steps('storage').name_checkNameAvailability.message]"
+									},
+									{
+										"isValid": "[or(steps('storage').name_checkNameAvailability.nameAvailable,equals(steps('storage').name_rePUT.id,concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('storage').name)),not(equals(steps('storage').name_checkNameAvailability.reason,'AlreadyExists')))]",
+										"message": "[steps('storage').name_checkNameAvailability.message]"
+									}
+								]
+							},
+							"visible": true
+						}
 					]
 				},
 				{
                     "name": "networking",
                     "label": "Networking",
                     "elements": [
-                        {
-                            "name": "enableNetworkInjection",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Enable Network Injection",
-                            "subLabel": "",
-                            "defaultValue": "true",
-                            "toolTip": "Indicates whether outbound traffic from the function App should be routed through a private endpoint.",
+						{
+                            "name": "subscriptionsApi",
+                            "type": "Microsoft.Solutions.ArmApiControl",
+                            "request": {
+                                "method": "GET",
+                                "path": "/subscriptions?api-version=2022-12-01"
+                            }
+                        },
+						{
+							"name": "faPrivateDnsZonesApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('networking').inboundAccess.PrivateDNSZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
+							}
+						},
+						{
+							"name": "saPrivateDnsZonesApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('networking').storagePrivateEndpoints.PrivateDNSZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
+							}
+						},
+						{
+							"name": "virtualNetworksApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('networking').virtualNetwork.networksSubscription, '/providers/Microsoft.Network/virtualNetworks?api-version=2022-11-01')]"
+							}
+						},
+						{
+							"name": "subnetsApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('networking').virtualNetwork.virtualNetwork, '/subnets?api-version=2022-05-01')]"
+							}
+						},
+						{
+							"name": "networkingTextBlock1",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": true,
+							"options": {
+								"text": "Function Apps can be provisioned with the inbound address being public to the internet or isolated to an Azure virtual network. Function Apps can also be provisioned with outbound traffic able to reach endpoints in a virtual network, be governed by network security groups or affected by virtual network routes. By default, your app is open to the internet and cannot reach into a virtual network. These aspects can also be changed after the app is provisioned.",
+								"link": {
+									"label": "Learn more",
+									"uri": "https://go.microsoft.com/fwlink/?linkid=2157533"
+								}
+							}
+						},
+						{
+                            "name": "publicAccess",
+                            "type": "Microsoft.Common.OptionsGroup",
+                            "label": "Enable public access",
+                            "defaultValue": "On",
+                            "toolTip": "Public access is applied to both main site and advanced tool site. Deny public network access will block all incoming traffic except that comes from private endpoints.",
                             "constraints": {
                                 "required": false,
                                 "allowedValues": [
                                     {
-                                        "label": "true",
+                                        "label": "On",
                                         "value": true
                                     },
                                     {
-                                        "label": "false",
+                                        "label": "Off",
                                         "value": false
                                     }
-                                ],
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
+                                ]
+                            }
                         },
+						{
+							"name": "infoBox1",
+							"type": "Microsoft.Common.InfoBox",
+							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
+							"options": {
+								"icon": "Warning",
+								"text": "Network injection is only available in Functions Premium and Basic, Standard, Premium, Premium V2, Premium V3 Dedicated App Service plans.",
+								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-networking-options?tabs=azure-portal#matrix-of-networking-features"
+							}
+						},
                         {
-                            "name": "enablePublicAccess",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Enable Public Access",
-                            "subLabel": "",
-                            "defaultValue": "true",
-                            "toolTip": "Indicates whether the function App should be accessible from the public network.",
+                            "name": "networkInjection",
+                            "type": "Microsoft.Common.OptionsGroup",
+                            "label": "Enable network injection",
+                            "defaultValue": "Yes",
+                            "toolTip": "Allows your function app to access resources inside a virtual network.",
                             "constraints": {
-                                "required": false,
                                 "allowedValues": [
                                     {
-                                        "label": "true",
+                                        "label": "Yes",
                                         "value": true
                                     },
                                     {
-                                        "label": "false",
+                                        "label": "No",
                                         "value": false
                                     }
-                                ],
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
+                                ]
+                            },                            
+                            "visible": "[not(equals(steps('basics').hosting.hostingPlanType, 'Consumption'))]"
                         },
-                        {
-                            "name": "functionAppInboundSubnetId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function App Inbound Subnet Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when \"enablePublicAccess\" is set to false and you aren't creating a new vnet and subnets.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "functionAppOutboundSubnetId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function App Outbound Subnet Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the subnet used by the function App for outbound traffic. Required when \"enableNetworkInjection\" is set to true and you aren't creating a new vnet and subnets.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "storagePrivateEndpointSubnetId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage Private Endpoint Subnet Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional The resource Id of the private Endpoint Subnet. Required when \"enableNetworkInjection\" is set to true and you aren't creating a new vnet and subnets.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "vnetName",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Vnet Name",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The name of the virtual network used for Virtual Network Integration. Required when \"enableNetworkInjection\" is set to true and you aren't providing the resource Id of an existing virtual network.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "vnetAddressPrefix",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Vnet Address Prefix",
-                            "subLabel": "",
-                            "defaultValue": "10.0.0.0/16",
-                            "toolTip": "Optional. The address prefix of the virtual network used Virtual Network Integration.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "functionAppOutboundSubnetName",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function App Outbound Subnet Name",
-                            "subLabel": "",
-                            "defaultValue": "fa-outbound-subnet",
-                            "toolTip": "Optional. The name of the subnet used by the function App for Virtual Network Integration.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "functionAppOutboundSubnetAddressPrefix",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function App Outbound Subnet Address Prefix",
-                            "subLabel": "",
-                            "defaultValue": "10.0.0.0/24",
-                            "toolTip": "Optional. The address prefix of the subnet used by the function App for Virtual Network Integration.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "storagePrivateEndpointSubnetName",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage Private Endpoint Subnet Name",
-                            "subLabel": "",
-                            "defaultValue": "storage-subnet",
-                            "toolTip": "Optional. The name of the subnet used for private Endpoints.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "storagePrivateEndpointSubnetAddressPrefix",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage Private Endpoint Subnet Address Prefix",
-                            "subLabel": "",
-                            "defaultValue": "10.0.1.0/24",
-                            "toolTip": "Optional. The address prefix of the subnet used for private Endpoints.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "functionAppInboundSubnetName",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function App Inbound Subnet Name",
-                            "subLabel": "",
-                            "defaultValue": "fa-inbound-subnet",
-                            "toolTip": "Optional. The name of the subnet used by the function App for inbound access when public access is disabled.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "functionAppInboundSubnetAddressPrefix",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function App Inbound Subnet Address Prefix",
-                            "subLabel": "",
-                            "defaultValue": "10.0.2.0/24",
-                            "toolTip": "Optional. The address prefix of the subnet used by the function App for inbound access when public access is disabled.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "functionAppPrivateDnsZoneResourceId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Function App Private Dns Zone Resource Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the function app private DNS Zone. Required when \"enablePublicAccess\" is set to false.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "storageBlobDnsZoneId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage Blob Dns Zone Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the blob storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "storageFileDnsZoneId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage File Dns Zone Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the file storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "storageQueueDnsZoneId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage Queue Dns Zone Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the queue storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "storageTableDnsZoneId",
-                            "type": "Microsoft.Common.TextBox",
-                            "label": "Storage Table Dns Zone Id",
-                            "subLabel": "",
-                            "defaultValue": "",
-                            "toolTip": "Conditional. The resource Id of the table storage Private DNS Zone. Required when \"enableNetworkInjection\" is set to true.",
-                            "constraints": {
-                                "required": false,
-                                "regex": "",
-                                "validationMessage": "",
-                                "validations": []
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        }
+						{
+							"name": "virtualNetwork",
+							"type": "Microsoft.Common.Section",
+							"label": "Virtual Network",
+							"elements": [
+								{
+									"name": "existingVnet",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Use Existing Virtual Network",
+									"defaultValue": "No",
+									"toolTip": "",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "networksSubscription",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Virtual Networks Subscription",
+									"placeholder": "",
+									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
+									"toolTip": "",
+									"constraints": {
+										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"required": true
+									},
+									"visible": "[equals(steps('networking').virtualNetwork.existingVnet, true)]"
+								},	
+								{
+									"name": "vnetTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[equals(steps('networking').virtualNetwork.existingVnet, true)]",
+									"options": {
+										"text": "[if(equals(steps('basics').hosting.newServerFarm, true), 'Select the virtual network to which the function app will be integrated. This virtual network must have at least one subnet that is not delegated to a service other than Microsoft.Web/serverFarms.', concat('Select the virtual network to which the existing App Service Plan (', last(split(steps('basics').hosting.existingHostingPlanId, '/')) ,') is already associated. You can find this information in the Networking | Virtual Networking Integration section of the App Service Plan.'))]"
+									}
+								},
+								{
+									"name": "virtualNetwork",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Virtual Network",
+									"multiLine": true,
+									"toolTip": "Select the virtual network to which the function app will be integrated. All subnet selections below will be limited to this Virtual Network.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(filter(steps('networking').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+									},
+									"visible": "[equals(steps('networking').virtualNetwork.existingVnet, true)]"
+								},								{
+									"name": "vnetName",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Virtual Network Name",
+									"subLabel": "",
+									"defaultValue": "[concat('vnet-', steps('basics').name)]",
+									"toolTip": "Specify the name of the new Virtual Network to create for Function App Virtual Network Integration.",
+									"constraints": {
+										"required": false,
+										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}[a-zA-Z0-9_]?$",
+										"validationMessage": "String value must be between 2 and 64 characters long, consist of only alphanumeric characters, underscores, periods, and hyphens. It must also start with an alphanumeric character and end with alphanumeric character or underscore."
+									},
+									"visible": "[not(equals(steps('networking').virtualNetwork.existingVnet, true))]"
+								},
+								{
+									"name": "vnetAddressPrefix",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Vnet Address Prefix",
+									"subLabel": "",
+									"defaultValue": "10.0.0.0/16",
+									"toolTip": "The address prefix of the virtual network used Virtual Network Integration provided in CIDR notation.",
+									"constraints": {
+										"required": false,
+										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
+										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
+									},
+									"visible": "[not(equals(steps('networking').virtualNetwork.existingVnet, true))]"
+								}
+							],
+							"visible": "[steps('networking').networkInjection]"
+						},			
+						{
+							"name": "inboundAccess",
+							"type": "Microsoft.Common.Section",
+							"label": "Inbound access",
+							"elements": [
+								{
+									"name": "infoBox1",
+									"type": "Microsoft.Common.InfoBox",
+									"visible": "[steps('networking').publicAccess]",
+									"options": {
+										"icon": "Warning",
+										"text": "Private endpoints are disabled if public internet access is enabled."
+									}
+								},
+								{
+									"name": "enablePE",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable private endpoints",
+									"defaultValue": "[if(steps('networking').publicAccess, 'No', 'Yes')]",
+									"toolTip": "Choose 'Yes' to enable private endpoints for the inbound access to the Function App.",
+									"constraints": {
+										"allowedValues": "[if(steps('networking').publicAccess, parse('[{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]"
+									},
+									"visible": true
+								},
+								{
+									"name": "subnetName",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Inbound subnet name",
+									"placeholder": "",
+									"defaultValue": "fa-inbound",
+									"toolTip": "Provide the name of the inbound subnet",
+									"constraints": {
+										"required": true,
+										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
+										"validationMessage": "Must be 2-80 characters long containing only alphanumeric characters, underscores, and hyphens. The first character must be an alphanumeric and the last an alphanumeric or underscore."
+									},
+									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').inboundAccess.enablePE, true))]"
+								},
+								{
+									"name": "snetAddressPrefix",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Subnet Address Prefix",
+									"subLabel": "",
+									"defaultValue": "10.0.0.0/24",
+									"toolTip": "[concat('Provide the address prefix of the subnet used for inbound access in CIDR notation. The address range must be within the address range - ', steps('networking').virtualNetwork.vnetAddressPrefix)]",
+									"constraints": {
+										"required": false,
+										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
+										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
+									},
+									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').inboundAccess.enablePE, true))]"
+								},								
+								{
+									"name": "snetTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[and(steps('networking').inboundAccess.enablePE, steps('networking').virtualNetwork.existingVnet)]",
+									"options": {
+										"text": "Select a subnet in the chosen virtual network to place a private endpoint in. Private endpoints enable secure inbound access from only the chosen virtual network. When enabled, your app will not be accessible from the internet."
+									}
+								},
+								{
+									"name": "peSubnet",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Inbound subnet",
+									"toolTip": "Select an existing subnet for the private Endpoints.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(steps('networking').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+									},
+									"visible": "[and(equals(steps('networking').publicAccess, false), steps('networking').virtualNetwork.existingVnet, steps('networking').inboundAccess.enablePE)]"
+								},								
+								{
+									"name": "enablePrivateDNS",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "DNS",
+									"defaultValue": "Azure Private DNS Zone: register the app to the applicable Azure Private DNS Zone.",
+									"toolTip": "Choose 'Azure Private DNS Zone' to register the private endpoints with Azure Private DNS Zones.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Azure Private DNS Zone: register the app to the applicable Azure Private DNS Zone.",
+												"value": true
+											},
+											{
+												"label": "Manual: I will provide my own custom DNS solution.",
+												"value": false
+											}
+										]
+									},
+									"visible": "[and(not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE)]"
+								},								
+								{
+									"name": "PrivateDNSZonesSubscription",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Private DNS Zones Subscription",
+									"placeholder": "",
+									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
+									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
+									"constraints": {
+										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"required": true
+									},
+									"visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE)]"
+								},
+								{
+                                    "name": "privateDnsZone",
+                                    "type": "Microsoft.Common.DropDown",
+                                    "visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE)]",
+                                    "label": "Private DNS Zone",
+                                    "defaultValue": "",
+                                    "multiLine": true,
+                                    "toolTip": "Select the existing Private DNS Zone for Azure Function Apps.",
+                                    "constraints": {
+                                        "required": true,
+                                        "allowedValues": "[map(filter(steps('networking').faPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.azurewebsites.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+                                    }
+                                }								
+							],
+							"visible": "[steps('networking').networkInjection]"
+						},
+						{
+							"name": "outboundAccess",
+							"type": "Microsoft.Common.Section",
+							"label": "Outbound access",
+							"elements": [
+								{
+									"name": "enableVNetIntegration",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable VNet Integration",
+									"defaultValue": "Yes",
+									"toolTip": "Choose 'Yes' to  enables your app to make calls into a virtual network.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									},
+									"visible": true
+								},
+								{
+									"name": "subnetName",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Inbound subnet name",
+									"placeholder": "",
+									"defaultValue": "snet-fa-outbound",
+									"toolTip": "Provide the name of the inbound subnet",
+									"constraints": {
+										"required": true,
+										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
+										"validationMessage": "Must be 2-80 characters long containing only alphanumeric characters, underscores, and hyphens. The first character must be an alphanumeric and the last an alphanumeric or underscore."
+									},
+									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration)]"
+								},
+								{
+									"name": "snetAddressPrefix",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Subnet Address Prefix",
+									"subLabel": "",
+									"defaultValue": "10.0.1.0/24",
+									"toolTip": "[concat('Provide the address prefix of the subnet used for outbound access in CIDR notation. The address range must be within the address range - ', steps('networking').virtualNetwork.vnetAddressPrefix)]",
+									"constraints": {
+										"required": false,
+										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
+										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
+									},
+									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration)]"
+								},		
+								{
+									"name": "snetTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]",
+									"options": {
+										"text": "Select a subnet in the chosen virtual network to be used for integration. VNet Integration enables your app to make calls into the chosen virtual network. You can also put network security groups or route tables on this subnet to control all outbound traffic from your function app."
+									}
+								},
+								{
+									"name": "infoBox1",
+									"type": "Microsoft.Common.InfoBox",
+									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]",
+									"options": {
+										"icon": "Warning",
+										"text": "The subnet must already be delegated to the App service plan picked on the basics screen."
+									}
+								},
+								{
+									"name": "outboundSubnet",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Outbound subnet",
+									"toolTip": "Select an existing subnet for outbound access.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(steps('networking').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+									},
+									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]"
+								}	
+							],
+							"visible": "[steps('networking').networkInjection]"
+						},
+						{
+							"name": "storagePrivateEndpoints",
+							"type": "Microsoft.Common.Section",
+							"label": "Storage Private Endpoints",
+							"elements": [
+								{
+									"name": "textBlock1",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "Configure private endpoints on your storage account to have tighter control over inbound traffic."
+									}
+								},
+								{
+									"name": "enablePE",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Add storage private endpoints",
+									"defaultValue": "Yes",
+									"toolTip": "Choose 'Yes' to enable private endpoints on the storage account to have tighter control over inbound traffic.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									}
+								},
+								{
+									"name": "subnetName",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Storage account subnet name",
+									"placeholder": "",
+									"defaultValue": "snet-storage",
+									"toolTip": "Provide the name of the storage account private endpoint subnet",
+									"constraints": {
+										"required": true,
+										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
+										"validationMessage": "Must be 2-80 characters long containing only alphanumeric characters, underscores, and hyphens. The first character must be an alphanumeric and the last an alphanumeric or underscore."
+									},
+									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').storagePrivateEndpoints.enablePE, true))]"
+								},
+								{
+									"name": "snetAddressPrefix",
+									"type": "Microsoft.Common.TextBox",
+									"label": "Subnet Address Prefix",
+									"subLabel": "",
+									"defaultValue": "10.0.2.0/24",
+									"toolTip": "[concat('Provide the address prefix of the subnet used for inbound access in CIDR notation. The address range must be within the address range - ', steps('networking').virtualNetwork.vnetAddressPrefix)]",
+									"constraints": {
+										"required": false,
+										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
+										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
+									},
+									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').storagePrivateEndpoints.enablePE, true))]"
+								},								
+								{
+									"name": "snetTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[and(steps('networking').virtualNetwork.existingVnet, steps('networking').storagePrivateEndpoints.enablePE)]",
+									"options": {
+										"text": "Select a subnet in the chosen virtual network to place the storage account private endpoints."
+									}
+								},
+								{
+									"name": "peSubnet",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Private endpoint subnet",
+									"toolTip": "Select an existing subnet for the storage account private endpoints.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(steps('networking').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+									},
+									"visible": "[and(steps('networking').virtualNetwork.existingVnet, steps('networking').storagePrivateEndpoints.enablePE)]"
+								},								
+								{
+									"name": "enablePrivateDNS",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "DNS",
+									"defaultValue": "Azure Private DNS Zone: register the app to the applicable Azure Private DNS Zone.",
+									"toolTip": "Choose 'Azure Private DNS Zone' to register the private endpoints with Azure Private DNS Zones.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Azure Private DNS Zone: register the app to the applicable Azure Private DNS Zone.",
+												"value": true
+											},
+											{
+												"label": "Manual: I will provide my own custom DNS solution.",
+												"value": false
+											}
+										]
+									},
+									"visible": "[steps('networking').storagePrivateEndpoints.enablePE]"
+								},								
+								{
+									"name": "PrivateDNSZonesSubscription",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Private DNS Zones Subscription",
+									"placeholder": "",
+									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
+									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
+									"constraints": {
+										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"required": true
+									},
+									"visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]"
+								},
+								{
+                                    "name": "blobPrivateDnsZone",
+                                    "type": "Microsoft.Common.DropDown",
+                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "label": "Storage blobs private DNS zone",
+                                    "defaultValue": "",
+                                    "multiLine": true,
+                                    "toolTip": "Select the existing Private DNS Zone for Azure Blobs.",
+                                    "constraints": {
+                                        "required": true,
+                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.blob.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+                                    }
+                                },
+								{
+                                    "name": "filePrivateDnsZone",
+                                    "type": "Microsoft.Common.DropDown",
+                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "label": "Storage files private DNS zone",
+                                    "defaultValue": "",
+                                    "multiLine": true,
+                                    "toolTip": "Select the existing Private DNS Zone for Azure Files.",
+                                    "constraints": {
+                                        "required": true,
+                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.file.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+                                    }
+                                },
+								{
+                                    "name": "queuePrivateDnsZone",
+                                    "type": "Microsoft.Common.DropDown",
+                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "label": "Storage queues private DNS zone",
+                                    "defaultValue": "",
+                                    "multiLine": true,
+                                    "toolTip": "Select the existing Private DNS Zone for Azure Queues.",
+                                    "constraints": {
+                                        "required": true,
+                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.queue.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+                                    }
+                                },
+								{
+                                    "name": "tablePrivateDnsZone",
+                                    "type": "Microsoft.Common.DropDown",
+                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "label": "Storage tables private DNS zone",
+                                    "defaultValue": "",
+                                    "multiLine": true,
+                                    "toolTip": "Select the existing Private DNS Zone for Azure Tables.",
+                                    "constraints": {
+                                        "required": true,
+                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.table.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+                                    }
+                                }
+							],
+							"visible": "[and(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration)]"
+						}                      
 					]
 				},
 				{
@@ -628,11 +969,85 @@
                     "label": "Monitoring",
                     "elements": [
 						{
-							"name": "logAnalyticsWorkspace",
-							"type": "Microsoft.Solutions.ResourceSelector",
-							"label": "Log Analytics Workspace",
-							"resourceType": "Microsoft.OperationalInsights/workspaces",
-							"toolTip": "Select the log analytics workspace to where diagnostic logs are sent."
+							"name": "diagnostics",
+							"type": "Microsoft.Common.Section",
+							"label": "Diagnostics",
+							"elements": [
+								{
+									"name": "textBlock1",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "Most resources in Azure have the ability to send diagnostic log and metrics to a log analytic workspace for retrieval and analysis. To enable diagnostic collection from the resources deployed, select the log analytics workspace below. Leave it empty to disable log and metric collection."
+									}
+								},
+								{
+									"name": "enableDiagnostics",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable Diagnostic Settings",
+									"defaultValue": "Yes",
+									"toolTip": "Choose 'Yes' to enable diagnostic settings.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									}
+								},
+								{
+									"name": "logAnalyticsWorkspace",
+									"type": "Microsoft.Solutions.ResourceSelector",
+									"label": "Log Analytics Workspace",
+									"resourceType": "Microsoft.OperationalInsights/workspaces",
+									"toolTip": "The log analytics workspace to where diagnostic logs are sent.",
+									"visible": "[steps('monitoring').diagnostics.enableDiagnostics]"
+								}
+							],
+							"visible": true
+						},
+						{
+							"name": "appInsights",
+							"type": "Microsoft.Common.Section",
+							"label": "Application Insights",
+							"elements": [
+								{
+									"name": "textBlock1",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": true,
+									"options": {
+										"text": "Azure Monitor application insights is an Application Performance Management (APM) service for developers and DevOps professionals. Enable it below to automatically monitor your application. It will detect performance anomalies, and includes powerful analytics tools to help you diagnose issues and to understand what users actually do with your app. Your bill is based on amount of data used by Application Insights and your data retention settings.",
+									    "link": {
+											"label": "Learn more",
+											"uri": "https://go.microsoft.com/fwlink/?linkid=2087013"
+										}
+									}
+								},
+								{
+									"name": "enableApplicationInsights",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable Application Insights",
+									"defaultValue": "Yes",
+									"toolTip": "Choose 'Yes' to enable application insights.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									}
+								}
+							]
 						}
 					]
 				},
@@ -644,8 +1059,11 @@
 							"name": "tags",
 							"type": "Microsoft.Common.TagsByResource",
 							"resources": [
+								"Microsoft.Insights/components",
+								"Microsoft.Network/privateEndpoints",
 								"Microsoft.Storage/storageAccounts",
-								"Microsoft.Compute/virtualMachines"
+								"Microsoft.Web/sites",
+								"Microsoft.Web/serverFarms"
 							]
 						}
                     ]
@@ -657,35 +1075,38 @@
             "location": "[steps('basics').resourceScope.location.name]",
             "resourceGroupId": "[steps('basics').resourceScope.resourceGroup.id]",
             "parameters": {
-                "location": "[steps('basics').resourceScope.location]",
+                "location": "[steps('basics').resourceScope.location.name]",
+				"nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]",
                 "functionAppName": "[steps('basics').name]",
-                "functionAppKind": "[steps('basics').os.functionAppKind]",
-                "runtimeStack": "[steps('basics').runtimeStack]",
-                "runtimeVersion": "[steps('basics').runtimeVersion]",
-                "hostingPlanType": "[steps('basics').hosting.hostingPlanType]",
-                "hostingPlanExistingResourceId": "[steps('basics').hostingPlanExistingResourceId]",
-                "functionHostingPlanName": "[steps('basics').functionHostingPlanName]",
-                "hostingPlanPricing": "[steps('basics').hostingPlanPricing]",
-                "storageAccountName": "[steps('storage').storageAccountName]",
-                "logAnalyticsWorkspaceId": "if(empty(steps('monitoring').logAnalyticsWorkspace), '', steps('monitoring').logAnalyticsWorkspace.id)]",
-                "enableNetworkInjection": "[steps('networking').enableNetworkInjection]",
-                "enablePublicAccess": "[steps('networking').enablePublicAccess]",
-                "functionAppInboundSubnetId": "[steps('networking').functionAppInboundSubnetId]",
-                "functionAppOutboundSubnetId": "[steps('networking').functionAppOutboundSubnetId]",
-                "storagePrivateEndpointSubnetId": "[steps('networking').storagePrivateEndpointSubnetId]",
-                "vnetName": "[steps('networking').vnetName]",
-                "vnetAddressPrefix": "[steps('networking').vnetAddressPrefix]",
-                "functionAppOutboundSubnetName": "[steps('networking').functionAppOutboundSubnetName]",
-                "functionAppOutboundSubnetAddressPrefix": "[steps('networking').functionAppOutboundSubnetAddressPrefix]",
-                "storagePrivateEndpointSubnetName": "[steps('networking').storagePrivateEndpointSubnetName]",
-                "storagePrivateEndpointSubnetAddressPrefix": "[steps('networking').storagePrivateEndpointSubnetAddressPrefix]",
-                "functionAppInboundSubnetName": "[steps('networking').functionAppInboundSubnetName]",
-                "functionAppInboundSubnetAddressPrefix": "[steps('networking').functionAppInboundSubnetAddressPrefix]",
-                "functionAppPrivateDnsZoneResourceId": "[steps('networking').functionAppPrivateDnsZoneResourceId]",
-                "storageBlobDnsZoneId": "[steps('networking').storageBlobDnsZoneId]",
-                "storageFileDnsZoneId": "[steps('networking').storageFileDnsZoneId]",
-                "storageQueueDnsZoneId": "[steps('networking').storageQueueDnsZoneId]",
-                "storageTableDnsZoneId": "[steps('networking').storageTableDnsZoneId]",
+                "functionAppKind": "[steps('basics').functionAppKind]",
+                "runtimeStack": "[steps('basics').runtimeStackName]",
+                "runtimeVersion": "[steps('basics').runtimeStackMinorVersion]",
+                "hostingPlanType": "[if(equals(steps('basics').hosting.newServerFarm, true), steps('basics').hosting.hostingPlanType, 'NotApplicable')]",
+                "hostingPlanId": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.existingHostingPlanId, '')]",
+                "hostingPlanName": "[if(equals(steps('basics').hosting.newServerFarm, true), steps('basics').hosting.hostingPlanName, '')]",
+                "hostingPlanPricing": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanPricing, 'NotApplicable')]",
+				"hostingPlanZoneRedundant": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.zoneRedundant, false)]",
+                "storageAccountName": "[steps('storage').name]",
+				"enablePublicAccess": "[steps('networking').publicAccess]",
+                "enableVNetIntegration": "[steps('networking').outboundAccess.enableVNetIntegration]",
+                "functionAppInboundSubnetId": "[if(and(steps('networking').virtualNetwork.existingVnet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
+				"functionAppOutboundSubnetId": "[if(and(steps('networking').virtualNetwork.existingVnet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
+				"storagePrivateEndpointSubnetId": "[if(and(steps('networking').virtualNetwork.existingVnet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.peSubnet, '')]",
+                "vnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').networkInjection), steps('networking').virtualNetwork.vnetName, '')]",
+				"vnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
+				"functionAppInboundSubnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
+				"functionAppInboundSubnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
+				"functionAppOutboundSubnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.subnetName, '')]",
+				"functionAppOutboundSubnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
+				"storagePrivateEndpointSubnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
+				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",
+				"functionAppPrivateDnsZoneId": "[if(and(not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
+				"storageBlobDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
+				"storageFileDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
+				"storageQueueDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.queuePrivateDnsZone, '')]",
+				"storageTableDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
+				"logAnalyticsWorkspaceId": "[if(equals(steps('monitoring').diagnostics.enableDiagnostics, true), steps('monitoring').diagnostics.logAnalyticsWorkspace.id, '')]",
+				"enableApplicationInsights": "[steps('monitoring').appInsights.enableApplicationInsights]",
                 "tags": "[steps('tags').tags]"
             }
         }
