@@ -560,7 +560,8 @@
 										"allowedValues": "[map(filter(steps('networking').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[equals(steps('networking').virtualNetwork.existingVnet, true)]"
-								},								{
+								},
+								{
 									"name": "vnetName",
 									"type": "Microsoft.Common.TextBox",
 									"label": "Virtual Network Name",

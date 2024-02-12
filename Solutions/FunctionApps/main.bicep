@@ -288,6 +288,26 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = if( enableVnetInt
   }
 }
 
+/*
+resource subnets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = if( enableVnetIntegration && empty(functionAppOutboundSubnetId) ) {
+  name: functionAppOutboundSubnetName
+  parent: vnet
+  properties: {
+    privateEndpointNetworkPolicies: 'Enabled'
+    privateLinkServiceNetworkPolicies: 'Enabled'
+    delegations: [
+      {
+        name: 'webapp'
+        properties: {
+          serviceName: 'Microsoft.Web/serverFarms'
+        }
+      }
+    ]
+    addressPrefix: functionAppOutboundSubnetAddressPrefix
+  }
+}
+*/
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: toLower(storageAccountName)
   location: location
@@ -369,6 +389,12 @@ resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@202
     }      
   }
 }]
+
+/*
+resource storageAccount_PrivateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for (privateEndpoint,i) in storagePrivateEndpoints: if(enableVnetIntegration) {
+  name: 'privatelink.${privateEndpoint.service}.${environment().suffixes.storage}' 
+}]
+*/
 
 resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableVnetIntegration) {
   name: '${privateEndpoint.name}-group'

@@ -14,46 +14,46 @@
                             "type": "Microsoft.Common.ResourceScope"
                         },
                         {
-                            "name": "subscriptionsApi",
-                            "type": "Microsoft.Solutions.ArmApiControl",
-                            "request": {
-                                "method": "GET",
-                                "path": "/subscriptions?api-version=2022-12-01"
-                            }
-                        },
-                        {
-                            "name": "privateDNSZonesSubscription",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Private DNS Zones Subscription",
-                            "placeholder": "",
-                            "defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
-                            "toolTip": "Pick the subscription containing the Azure Private DNS Zones",
-                            "constraints": {
-                                "allowedValues": "[map(steps('basics').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
-                                "required": true
-                            }
-                        },
-                        {
-							"name": "faPrivateDnsZonesApi",
+							"name": "virtualNetworksApi",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('basics').privateDNSZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
+								"path": "[concat(steps('basics').resourceScope.subscription.id, '/providers/Microsoft.Network/virtualNetworks?api-version=2022-11-01')]"
+							}
+						},	
+                        {
+							"name": "subnetsApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').virtualNetwork, '/subnets?api-version=2022-05-01')]"
 							}
 						},
                         {
-                            "name": "privateDnsZone",
+                            "name": "virtualNetwork",
                             "type": "Microsoft.Common.DropDown",
-                            "label": "Private DNS Zone",
-                            "defaultValue": "",
+                            "label": "Virtual Network",
                             "multiLine": true,
-                            "toolTip": "Select the existing Private DNS Zone for Azure Function Apps.",
+                            "toolTip": "Select the virtual network to which the function app will be integrated. All subnet selections below will be limited to this Virtual Network.",
                             "constraints": {
                                 "required": true,
-                                "allowedValues": "[map(filter(steps('basics').faPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.azurewebsites.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
-                            }
-                        }	
-                                                
+                                "allowedValues": "[map(filter(steps('basics').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+                            },
+                            "visible": true
+                        },
+                        {
+                            "name": "subnet",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Subnet",
+                            "multiLine": true,
+                            "toolTip": "Select the subnet to which the function app will be integrated.",
+                            "constraints": {
+                                "required": true,
+                                "allowedValues": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+                            },
+                            "visible": true
+                        }                   
+                        
                     ]
                 }
             ]
@@ -61,7 +61,10 @@
         "outputs": {
             "parameters": {
                 "location": "[steps('basics').resourceScope.location.name]",
-                "temp": "[map(steps('basics').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]"
+                "localVnets": "[map(filter(steps('basics').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]",
+                "subnets": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]",
+                "test": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"', item.properties.serviceAssociationLinks, '\",\"value\":\"', item.id, '\"}')))]",
+                "filteredSubnets": "[map(filter(map(steps('basics').subnetsApi.value, (item) => item.properties.serviceAssociationLinks), (item) => equals(item.properties.link, '/subscriptions/6dc4ed51-16b9-4494-a406-4fb7a8330d95/resourceGroups/rg-func-portal-win-net8-ep1-use/providers/Microsoft.Web/serverfarms/asp-win-ep1-use')), (item) => parse(concat('{\"label\":\"', item.properties.link, '\",\"description\":\"', item.properties.link, '\",\"value\":\"', item.id, '\"}')))]"
             },
             "kind": "Subscription",
             "location": "[steps('basics').resourceScope.location.name]",
