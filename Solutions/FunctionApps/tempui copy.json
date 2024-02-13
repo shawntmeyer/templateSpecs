@@ -30,25 +30,6 @@
 							}
 						},
                         {
-                            "name": "serverFarmsApi",
-                            "type": "Microsoft.Solutions.ArmApiControl",
-                            "request": {
-                                "method": "GET",
-                                "path": "[concat(steps('basics').resourceScope.subscription.id, '/providers/Microsoft.Web/serverfarms?api-version=2022-03-01')]"
-                            }
-                        },
-                        {
-                            "name": "existingHostingPlanId",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Existing App Service Plan",
-                            "multiLine": true,
-                            "toolTip": "Select the App Service Plan that will host the Function App.",
-                            "constraints": {
-                                "required": true,
-                                "allowedValues": "[map(filter(steps('basics').serverFarmsApi.value, (item) => equals(toLower(replace(item.location, ' ', '')), steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
-                            }
-                        },
-                        {
                             "name": "virtualNetwork",
                             "type": "Microsoft.Common.DropDown",
                             "label": "Virtual Network",
@@ -68,7 +49,7 @@
                             "toolTip": "Select the subnet to which the function app will be integrated.",
                             "constraints": {
                                 "required": true,
-                                "allowedValues": "[map(filter(steps('basics').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Linked to App Service Plan: ', last(split(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '/')), '\",\"value\":\"', item.id, '\"}')))]"
+                                "allowedValues": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
                             },
                             "visible": true
                         }                   
@@ -82,14 +63,7 @@
                 "location": "[steps('basics').resourceScope.location.name]",
                 "localVnets": "[map(filter(steps('basics').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]",
                 "subnets": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]",
-
-                "test": "[map(filter(steps('basics').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Delegated to App Service Plan: ', last(split(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '/')), '\",\"value\":\"', item.id, '\"}')))]",
-
-                "subnetId": "[steps('basics').subnet]",
-
-
-
-
+                "test": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"', item.properties.serviceAssociationLinks, '\",\"value\":\"', item.id, '\"}')))]",
                 "filteredSubnets": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"', first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '\",\"value\":\"', item.id, '\"}')))]"
             },
             "kind": "Subscription",

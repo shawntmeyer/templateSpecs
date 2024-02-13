@@ -779,18 +779,19 @@
 									"type": "Microsoft.Common.InfoBox",
 									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]",
 									"options": {
-										"icon": "Warning",
-										"text": "The subnet must already be delegated to the App service plan picked on the basics screen."
+										"icon": "Info",
+										"text": "[concat('The available list of subnets below is filtered to those which are linked to the existing hosting plan: \"', last(split(steps('basics').hosting.existingHostingPlanId), '/')), '\" chosen on the basics page.')]"
 									}
 								},
 								{
 									"name": "outboundSubnet",
 									"type": "Microsoft.Common.DropDown",
 									"label": "Outbound subnet",
+									"defaultValue": "[map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => item.name)]",
 									"toolTip": "Select an existing subnet for outbound access.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(steps('networking').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Linked to App Service Plan: ', last(split(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '/')), '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]"
 								}	
