@@ -70,7 +70,7 @@
 								"method": "POST",
 								"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Web/checkNameAvailability?api-version=2022-03-01')]",
 								"body": {
-									"name": "[steps('basics').name]",
+									"name": "[steps('basics').functionAppName]",
 									"type": "Microsoft.Web/sites"
 								}
 							}
@@ -80,12 +80,12 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').name,'?api-version=2022-03-01')]",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').functionAppName,'?api-version=2022-03-01')]",
 								"body": {}
 							}
 						},
 						{
-							"name": "name",
+							"name": "functionAppName",
 							"type": "Microsoft.Common.TextBox",
 							"label": "Function App Name",
 							"defaultValue": "[if(steps('basics').nameConvResTypeAtEnd, '-func', 'func-')]",
@@ -98,13 +98,24 @@
 										"message": "[steps('basics').name_checkNameAvailability.message]"
 									},
 									{
-										"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_rePUT.id,concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').name)),not(equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists')))]",
+										"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_rePUT.id,concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').functionAppName)),not(equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists')))]",
 										"message": "[steps('basics').name_checkNameAvailability.message]"
 									}
 								]
 							},
 							"visible": true
 						},
+						{
+                            "type":"Microsoft.Common.ResourceGroupSelector",
+                            "name": "functionAppResourceGroup",
+							"label": "Function App Resource Group",
+                            "allowedMode": "Both",
+                            "required": false,
+                            "scope": {
+                                "subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
+                            },
+                            "visible": true
+                        },	
 						{
 							"name": "functionAppStacksApi",
 							"type": "Microsoft.Solutions.ArmApiControl",
@@ -146,7 +157,7 @@
                             "toolTip": "The runtime stack used by the function App.",
                             "constraints": {
                                 "required": false,
-                                "allowedValues": "[map(first(map(filter(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => equals(item.displayText, steps('basics').runtimeStackMajorVersion)), (item) => item.minorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.value, '\"}')))]"
+                                "allowedValues": "[map(filter(first(map(filter(first(map(filter(steps('basics').functionAppStacksApi.value, (stack) => equals(stack.name, steps('basics').runtimeStackName)), (stack) => stack.properties.majorVersions)), (majVer) => equals(majVer.displayText, steps('basics').runtimeStackMajorVersion)), (majVer) => majVer.minorVersions)), (minVer) => if(contains(steps('basics').functionAppKind, 'linux'), not(equals(minVer.stackSettings.windowsRuntimeSettings.isDeprecated, true)), not(equals(minVer.stackSettings.linuxRuntimeSettings.isDeprecated, true)))), (minVer) => parse(concat('{\"label\":\"', minVer.displayText, '\",\"value\":\"', minVer.value, '\"}')))]"
                             },
                             "visible": true
                         },
@@ -224,13 +235,13 @@
 									"toolTip": "Select 'No' to use an existing server farm. The plans listed will be limited to those which are compatible with the runtime, operating system, and plan type selected.",
 									"constraints": {
 										"allowedValues": [
+																						{
+												"label": "Yes",
+												"value": true
+											},
 											{
 												"label": "No",
 												"value": false
-											},
-											{
-												"label": "Yes",
-												"value": true
 											}
 										],
 										"required": true
@@ -246,6 +257,15 @@
 									}
 								},
 								{
+									"name": "existingServerFarmInfoBox",
+									"type": "Microsoft.Common.InfoBox",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]",
+									"options": {
+										"icon": "Info",
+										"text": "The list of hosting plans below is filtered based on the location, operating system, and hosting plan type you chose above. If the list is empty, select a different operating system or plan type or choose to deploy a new Hosting plan which can also deploy additional resources such as virtual networks and private DNS zones depending on the options selected on the 'Networking' blade."
+									}
+								},
+								{
 									"name": "existingHostingPlanId",
 									"type": "Microsoft.Common.DropDown",
 									"label": "Existing App Service Plan",
@@ -256,6 +276,15 @@
 										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').resourceScope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
+								},
+								{
+									"name": "newServerFarmInfoBox",
+									"type": "Microsoft.Common.InfoBox",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]",
+									"options": {
+										"icon": "Info",
+										"text": "Enter the name of the new hosting plan and resource group below. The hosting plan and any new networking resources required will be deployed to this resource group."
+									}
 								},
 								{
 									"name": "hostingPlanName",
@@ -271,6 +300,17 @@
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},
+								{
+									"type":"Microsoft.Common.ResourceGroupSelector",
+									"name": "hostingPlanResourceGroup",
+									"allowedMode": "Both",
+									"required": false,
+									"defaultValue": "[steps('basics').functionAppResourceGroup.value.name]",
+									"scope": {
+										"subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
+									},
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
+								},								
 								{
 									"name": "hostingPlanPricing",
 									"type": "Microsoft.Common.DropDown",
@@ -378,7 +418,7 @@
 							"name": "name",
 							"type": "Microsoft.Common.TextBox",
 							"label": "Storage Account Name",
-							"defaultValue": "[toLower(replace(replace(steps('basics').name, 'func-', 'st'), '-', ''))]",
+							"defaultValue": "[toLower(replace(replace(steps('basics').functionAppName, 'func-', 'st'), '-', ''))]",
 							"toolTip": "Required. Name of the Storage Account.",
 							"constraints": {
 								"required": true,
@@ -479,29 +519,20 @@
 							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
 							"options": {
 								"icon": "Warning",
-								"text": "Network injection is only available in Functions Premium and Basic, Standard, Premium, Premium V2, Premium V3 Dedicated App Service plans.",
+								"text": "Network integration is only available in Functions Premium and Basic, Standard, Premium, Premium V2, Premium V3 Dedicated App Service plans.",
 								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-networking-options?tabs=azure-portal#matrix-of-networking-features"
 							}
 						},
                         {
                             "name": "networkInjection",
                             "type": "Microsoft.Common.OptionsGroup",
-                            "label": "Enable network injection",
-                            "defaultValue": "Yes",
-                            "toolTip": "Allows your function app to access resources inside a virtual network.",
+                            "label": "Enable network integration",
+                            "defaultValue": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), 'No', 'Yes')]",
+                            "toolTip": "Allows your function app to attach to and/or access resources inside a virtual network.",
                             "constraints": {
-                                "allowedValues": [
-                                    {
-                                        "label": "Yes",
-                                        "value": true
-                                    },
-                                    {
-                                        "label": "No",
-                                        "value": false
-                                    }
-                                ]
+                                "allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), parse('[{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]"
                             },                            
-                            "visible": "[not(equals(steps('basics').hosting.hostingPlanType, 'Consumption'))]"
+                            "visible": true
                         },
 						{
 							"name": "virtualNetwork",
@@ -509,24 +540,39 @@
 							"label": "Virtual Network",
 							"elements": [
 								{
-									"name": "existingVnet",
+									"name": "newVNet",
 									"type": "Microsoft.Common.OptionsGroup",
-									"label": "Use Existing Virtual Network",
-									"defaultValue": "No",
-									"toolTip": "",
+									"label": "Deploy a new Virtual Network",
+									"defaultValue": "[if(steps('basics').hosting.newServerFarm, 'Yes', 'No')]",
+									"toolTip": "Choose 'Yes' to deploy a new virtual network for network injection/integration.",
 									"constraints": {
-										"allowedValues": [
-											{
-												"label": "Yes",
-												"value": true
-											},
-											{
-												"label": "No",
-												"value": false
-											}
-										]
+										"allowedValues": "[if(steps('basics').hosting.newServerFarm, parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"No\",\"value\":false}]'))]"
 									},
 									"visible": true
+								},
+								{
+									"name": "existingVNetExistingASPTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), equals(steps('networking').virtualNetwork.newVNet, false))]",
+									"options": {
+										"text": "[concat('Select the subscription and then the virtual network to which the existing App Service Plan (', last(split(steps('basics').hosting.existingHostingPlanId, '/')) ,') is already associated. You can find this information in the Networking | Virtual Networking Integration section of the App Service Plan.')]"
+									}
+								},
+								{
+									"name": "existingVNetNewASPTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[and(steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false))]",
+									"options": {
+										"text": "Select the subscription and then the virtual network to which the new App Service Plan will be linked. The network listed must have a subnet delegated to 'Microsoft.Web/serverFarms' but not associated with an existing App Service Plan."
+									}
+								},
+								{
+									"name": "newVNetTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[equals(steps('networking').virtualNetwork.newVNet, true)]",
+									"options": {
+										"text": "Specify the virtual network name, resource group, and virtual network address prefix to which the function app and new service plan will be integrated."
+									}
 								},
 								{
 									"name": "networksSubscription",
@@ -539,15 +585,7 @@
 										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
 										"required": true
 									},
-									"visible": "[equals(steps('networking').virtualNetwork.existingVnet, true)]"
-								},	
-								{
-									"name": "vnetTextBlock",
-									"type": "Microsoft.Common.TextBlock",
-									"visible": "[equals(steps('networking').virtualNetwork.existingVnet, true)]",
-									"options": {
-										"text": "[if(equals(steps('basics').hosting.newServerFarm, true), 'Select the virtual network to which the function app will be integrated. This virtual network must have at least one subnet that is not delegated to a service other than Microsoft.Web/serverFarms.', concat('Select the virtual network to which the existing App Service Plan (', last(split(steps('basics').hosting.existingHostingPlanId, '/')) ,') is already associated. You can find this information in the Networking | Virtual Networking Integration section of the App Service Plan.'))]"
-									}
+									"visible": "[equals(steps('networking').virtualNetwork.newVNet, false)]"
 								},
 								{
 									"name": "virtualNetwork",
@@ -559,22 +597,33 @@
 										"required": true,
 										"allowedValues": "[map(filter(steps('networking').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
 									},
-									"visible": "[equals(steps('networking').virtualNetwork.existingVnet, true)]"
+									"visible": "[equals(steps('networking').virtualNetwork.newVNet, false)]"
 								},
 								{
 									"name": "vnetName",
 									"type": "Microsoft.Common.TextBox",
 									"label": "Virtual Network Name",
 									"subLabel": "",
-									"defaultValue": "[concat('vnet-', steps('basics').name)]",
+									"defaultValue": "[concat('vnet-', steps('basics').functionAppName)]",
 									"toolTip": "Specify the name of the new Virtual Network to create for Function App Virtual Network Integration.",
 									"constraints": {
 										"required": false,
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}[a-zA-Z0-9_]?$",
 										"validationMessage": "String value must be between 2 and 64 characters long, consist of only alphanumeric characters, underscores, periods, and hyphens. It must also start with an alphanumeric character and end with alphanumeric character or underscore."
 									},
-									"visible": "[not(equals(steps('networking').virtualNetwork.existingVnet, true))]"
+									"visible": "[steps('networking').virtualNetwork.newVNet]"
 								},
+								{
+									"type":"Microsoft.Common.ResourceGroupSelector",
+									"name": "virtualNetworkResourceGroup",
+									"label": "Virtual Network Resource Group",
+									"allowedMode": "Both",
+									"required": false,
+									"scope": {
+										"subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
+									},
+									"visible": "[steps('networking').virtualNetwork.newVNet]"
+								},	
 								{
 									"name": "vnetAddressPrefix",
 									"type": "Microsoft.Common.TextBox",
@@ -587,7 +636,7 @@
 										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
 										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
 									},
-									"visible": "[not(equals(steps('networking').virtualNetwork.existingVnet, true))]"
+									"visible": "[steps('networking').virtualNetwork.newVNet]"
 								}
 							],
 							"visible": "[steps('networking').networkInjection]"
@@ -629,7 +678,7 @@
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
 										"validationMessage": "Must be 2-80 characters long containing only alphanumeric characters, underscores, and hyphens. The first character must be an alphanumeric and the last an alphanumeric or underscore."
 									},
-									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').inboundAccess.enablePE, true))]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE)]"
 								},
 								{
 									"name": "snetAddressPrefix",
@@ -643,14 +692,14 @@
 										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
 										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
 									},
-									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').inboundAccess.enablePE, true))]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE)]"
 								},								
 								{
 									"name": "snetTextBlock",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(steps('networking').inboundAccess.enablePE, steps('networking').virtualNetwork.existingVnet)]",
+									"visible": "[and(equals(steps('networking').newVNet, false), steps('networking').inboundAccess.enablePE)]",
 									"options": {
-										"text": "Select a subnet in the chosen virtual network to place a private endpoint in. Private endpoints enable secure inbound access from only the chosen virtual network. When enabled, your app will not be accessible from the internet."
+										"text": "Select a subnet in the chosen virtual network to which a private endpoint will be attached. Private endpoints enable secure inbound access from only the chosen virtual network. When enabled, your app will not be accessible from the internet. The list of subnets is filtered to only those that do not have service delegations and private endpoint network policies are disabled."
 									}
 								},
 								{
@@ -659,17 +708,17 @@
 									"label": "Inbound subnet",
 									"toolTip": "Select an existing subnet for the private Endpoints.",
 									"constraints": {
-										"required": true,
-										"allowedValues": "[map(steps('networking').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+										"required": true,										
+										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (item) => and(empty(item.properties.delegations), equals(item.properties.privateEndpointNetworkPolicies, 'Disabled'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
 									},
-									"visible": "[and(equals(steps('networking').publicAccess, false), steps('networking').virtualNetwork.existingVnet, steps('networking').inboundAccess.enablePE)]"
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE)]"
 								},								
 								{
 									"name": "enablePrivateDNS",
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "DNS",
 									"defaultValue": "Azure Private DNS Zone: register the app to the applicable Azure Private DNS Zone.",
-									"toolTip": "Choose 'Azure Private DNS Zone' to register the private endpoints with Azure Private DNS Zones.",
+									"toolTip": "Choose 'Azure Private DNS Zone' to register the private endpoints with Azure Private DNS Zones. If you are deploying a new virtual network, a new Private DNS Zone will be created in the Network resource group chosen above.",
 									"constraints": {
 										"allowedValues": [
 											{
@@ -682,7 +731,7 @@
 											}
 										]
 									},
-									"visible": "[and(not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE)]"
+									"visible": "[steps('networking').inboundAccess.enablePE]"
 								},								
 								{
 									"name": "PrivateDNSZonesSubscription",
@@ -695,12 +744,12 @@
 										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
 										"required": true
 									},
-									"visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE)]"
+									"visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, equals(steps('networking').virtualNetwork.newVNet, false))]"
 								},
 								{
                                     "name": "privateDnsZone",
                                     "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE)]",
+                                    "visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, equals(steps('networking').virtualNetwork.newVNet, false))]",
                                     "label": "Private DNS Zone",
                                     "defaultValue": "",
                                     "multiLine": true,
@@ -750,7 +799,7 @@
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
 										"validationMessage": "Must be 2-80 characters long containing only alphanumeric characters, underscores, and hyphens. The first character must be an alphanumeric and the last an alphanumeric or underscore."
 									},
-									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration)]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration)]"
 								},
 								{
 									"name": "snetAddressPrefix",
@@ -764,23 +813,32 @@
 										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
 										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
 									},
-									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration)]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration)]"
 								},		
 								{
-									"name": "snetTextBlock",
+									"name": "snetExistingAspTextBlock",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]",
 									"options": {
-										"text": "Select a subnet in the chosen virtual network to be used for integration. VNet Integration enables your app to make calls into the chosen virtual network. You can also put network security groups or route tables on this subnet to control all outbound traffic from your function app."
+										"text": "Select the subnet in the chosen virtual network to be used for integration. VNet Integration enables your app to make calls into the chosen virtual network. You can also put network security groups or route tables on this subnet to control all outbound traffic from your function app. The list of subnets is automatically filtered to only those delegated and linked to the app service plan specified on the basics page."
+									},
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
+								},
+								{
+									"name": "wrongVnetExistingAspErrorBox",
+									"type": "Microsoft.Common.InfoBox",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\"}')))))]",
+									"options": {
+										"icon": "Error",
+										"text": "There are no subnets in the virtual network chosen above that have a link to the existing app service plan chosen on the 'Basics' page. Either select a different virtual network above, a different hosting plan on the 'Basics' page, or choose to deploy a new App Service Plan."
 									}
 								},
 								{
-									"name": "infoBox1",
+									"name": "noSNetsWithDelegationErrorBox",
 									"type": "Microsoft.Common.InfoBox",
-									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]",
+									"visible": "[and(steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('basics').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => parse(concat('{\"label\":\"', item.name, '\"}')))))]",
 									"options": {
-										"icon": "Info",
-										"text": "[concat('The available list of subnets below is filtered to those which are linked to the existing hosting plan: \"', last(split(steps('basics').hosting.existingHostingPlanId), '/')), '\" chosen on the basics page.')]"
+										"icon": "Error",
+										"text": "There are no subnets in the virtual network chosen above that are delegated to the 'Microsoft.Web/serverFarms' service and are not already linked to an App Service Plan. You must either select another network, select the option to create a new virtual network, or create a subnet in the chosen virtual network, delegate it to 'Microsoft.Web/serverFarms', and then restart this deployment."
 									}
 								},
 								{
@@ -791,10 +849,11 @@
 									"toolTip": "Select an existing subnet for outbound access.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Linked to App Service Plan: ', last(split(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '/')), '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[if(equals(steps('basics').hosting.newServerFarm, false), map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}'))), map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}'))))]"
 									},
-									"visible": "[and(steps('networking').outboundAccess.enableVNetIntegration, steps('networking').virtualNetwork.existingVnet)]"
-								}	
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
+								}
+									
 							],
 							"visible": "[steps('networking').networkInjection]"
 						},
@@ -841,7 +900,7 @@
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
 										"validationMessage": "Must be 2-80 characters long containing only alphanumeric characters, underscores, and hyphens. The first character must be an alphanumeric and the last an alphanumeric or underscore."
 									},
-									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').storagePrivateEndpoints.enablePE, true))]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE)]"
 								},
 								{
 									"name": "snetAddressPrefix",
@@ -855,14 +914,14 @@
 										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
 										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
 									},
-									"visible": "[and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), equals(steps('networking').storagePrivateEndpoints.enablePE, true))]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE)]"
 								},								
 								{
 									"name": "snetTextBlock",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(steps('networking').virtualNetwork.existingVnet, steps('networking').storagePrivateEndpoints.enablePE)]",
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE)]",
 									"options": {
-										"text": "Select a subnet in the chosen virtual network to place the storage account private endpoints."
+										"text": "Select a subnet in the chosen virtual network to place the storage account private endpoints. The subnet list is automatically filtered to only those that do not have a delegation."
 									}
 								},
 								{
@@ -872,9 +931,9 @@
 									"toolTip": "Select an existing subnet for the storage account private endpoints.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(steps('networking').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (item) => and(empty(item.properties.delegations), equals(item.properties.privateEndpointNetworkPolicies, 'Disabled'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
 									},
-									"visible": "[and(steps('networking').virtualNetwork.existingVnet, steps('networking').storagePrivateEndpoints.enablePE)]"
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE)]"
 								},								
 								{
 									"name": "enablePrivateDNS",
@@ -907,12 +966,12 @@
 										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
 										"required": true
 									},
-									"visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]"
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]"
 								},
 								{
                                     "name": "blobPrivateDnsZone",
                                     "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
                                     "label": "Storage blobs private DNS zone",
                                     "defaultValue": "",
                                     "multiLine": true,
@@ -925,7 +984,7 @@
 								{
                                     "name": "filePrivateDnsZone",
                                     "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
                                     "label": "Storage files private DNS zone",
                                     "defaultValue": "",
                                     "multiLine": true,
@@ -938,7 +997,7 @@
 								{
                                     "name": "queuePrivateDnsZone",
                                     "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
                                     "label": "Storage queues private DNS zone",
                                     "defaultValue": "",
                                     "multiLine": true,
@@ -951,7 +1010,7 @@
 								{
                                     "name": "tablePrivateDnsZone",
                                     "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
                                     "label": "Storage tables private DNS zone",
                                     "defaultValue": "",
                                     "multiLine": true,
@@ -1073,40 +1132,44 @@
             ]
         },
         "outputs": {
-            "kind": "ResourceGroup",
+            "kind": "Subscription",
             "location": "[steps('basics').resourceScope.location.name]",
-            "resourceGroupId": "[steps('basics').resourceScope.resourceGroup.id]",
+            "subscriptionId": "[steps('basics').resourceScope.subscription.id]",
             "parameters": {
                 "location": "[steps('basics').resourceScope.location.name]",
 				"nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]",
-                "functionAppName": "[steps('basics').name]",
+                "functionAppName": "[steps('basics').functionAppName]",
+				"functionAppResourceGroupName": "[steps('basics').functionAppResourceGroup.value.name]",
                 "functionAppKind": "[steps('basics').functionAppKind]",
                 "runtimeStack": "[steps('basics').runtimeStackName]",
                 "runtimeVersion": "[steps('basics').runtimeStackMinorVersion]",
-                "hostingPlanType": "[if(equals(steps('basics').hosting.newServerFarm, true), steps('basics').hosting.hostingPlanType, 'NotApplicable')]",
-                "hostingPlanId": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.existingHostingPlanId, '')]",
-                "hostingPlanName": "[if(equals(steps('basics').hosting.newServerFarm, true), steps('basics').hosting.hostingPlanName, '')]",
-                "hostingPlanPricing": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanPricing, 'NotApplicable')]",
+				"hostingPlanType": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanType, 'NotApplicable')]",                
+				"hostingPlanId": "[if(steps('basics').hosting.newServerFarm, '', steps('basics').hosting.existingHostingPlanId)]",
+                "hostingPlanName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanName, '')]",
+				"hostingPlanResourceGroupName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanResourceGroup.value.name, '')]",
+				"hostingPlanPricing": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanPricing, 'NotApplicable')]",
 				"hostingPlanZoneRedundant": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.zoneRedundant, false)]",
                 "storageAccountName": "[steps('storage').name]",
 				"enablePublicAccess": "[steps('networking').publicAccess]",
+				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",
                 "enableVNetIntegration": "[steps('networking').outboundAccess.enableVNetIntegration]",
-                "functionAppInboundSubnetId": "[if(and(steps('networking').virtualNetwork.existingVnet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
-				"functionAppOutboundSubnetId": "[if(and(steps('networking').virtualNetwork.existingVnet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
-				"storagePrivateEndpointSubnetId": "[if(and(steps('networking').virtualNetwork.existingVnet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.peSubnet, '')]",
-                "vnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').networkInjection), steps('networking').virtualNetwork.vnetName, '')]",
-				"vnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
-				"functionAppInboundSubnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
-				"functionAppInboundSubnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
-				"functionAppOutboundSubnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.subnetName, '')]",
-				"functionAppOutboundSubnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
-				"storagePrivateEndpointSubnetName": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
-				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(not(equals(steps('networking').virtualNetwork.existingVnet, true)), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",
-				"functionAppPrivateDnsZoneId": "[if(and(not(equals(steps('networking').publicAccess, true)), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
-				"storageBlobDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
-				"storageFileDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
-				"storageQueueDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.queuePrivateDnsZone, '')]",
-				"storageTableDnsZoneId": "[if(and(steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
+				"functionAppInboundSubnetId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
+				"functionAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
+				"storagePrivateEndpointSubnetId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.peSubnet, '')]",
+				"vnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetName, '')]",
+				"networkResourceGroupName": "[if(steps('networking').virtualNetwork.newVNet, steps('networking').virtualNetwork.vnetResourceGroup.value.name, '')]",
+				"vnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
+				"functionAppInboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
+				"functionAppInboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
+				"functionAppOutboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.subnetName, '')]",	
+				"functionAppOutboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
+				"storagePrivateEndpointSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
+				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",				
+				"functionAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), equals(steps('networking').publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
+				"storageBlobDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
+				"storageFileDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
+				"storageQueueDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.queuePrivateDnsZone, '')]",
+				"storageTableDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
 				"logAnalyticsWorkspaceId": "[if(equals(steps('monitoring').diagnostics.enableDiagnostics, true), steps('monitoring').diagnostics.logAnalyticsWorkspace.id, '')]",
 				"enableApplicationInsights": "[steps('monitoring').appInsights.enableApplicationInsights]",
                 "tags": "[steps('tags').tags]"

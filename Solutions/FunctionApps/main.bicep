@@ -1,13 +1,17 @@
 // Basics
+targetScope = 'subscription'
 
 @description('Optional. The location of all resources deployed by this template.')
-param location string = resourceGroup().location
+param location string = deployment().location
 
 @description('Optional. Reverse the order of the resource type and name in the generated resource name. Default is false.')
 param nameConvResTypeAtEnd bool = false
 
 @description('Required. The name of the function App.')
 param functionAppName string
+
+@description('Required. The name of the resource group where the function App will be deployed.')
+param functionAppResourceGroupName string
 
 @description('Optional. The type of site to deploy')
 @allowed([
@@ -53,6 +57,9 @@ param hostingPlanId string = ''
 @description('Conditional. The name of the service plan used by the function App. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 param hostingPlanName string = ''
 
+@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
+param hostingPlanResourceGroupName string = ''
+
 @description('Optional. The hosting plan pricing plan. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 @allowed([
   'ElasticPremium_EP1'
@@ -83,15 +90,18 @@ param logAnalyticsWorkspaceId string = ''
 
 // Networking
 
-@description('Indicates whether the function App should be accessible from the public network.')
+@description('Optional. Indicates whether the function App should be accessible from the public network.')
 param enablePublicAccess bool = true
 
-@description('Indicates whether outbound traffic from the function App should be routed through a private endpoint.')
+@description('Optional. Indicates whether the function App should be accessible via a private endpoint.')
+param enableInboundPrivateEndpoint bool = false
+
+@description('Optional. Indicates whether outbound traffic from the function App should be routed through a private endpoint.')
 param enableVnetIntegration bool = true
 
 //  existing Subnets
 
-@description('Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when "enablePublicAccess" is set to false and you aren\'t creating a new vnet and subnets.')
+@description('Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when "enableInboundPrivateEndpoint" is set to false and you aren\'t creating a new vnet and subnets.')
 param functionAppInboundSubnetId string = ''
 
 @description('Conditional. The resource Id of the subnet used by the function App for outbound traffic. Required when "enableVnetIntegration" is set to true and you aren\'t creating a new vnet and subnets.')
@@ -104,6 +114,9 @@ param storagePrivateEndpointSubnetId string = ''
 
 @description('Conditional. The name of the virtual network used for Virtual Network Integration. Required when "enableVnetIntegration" is set to true and you aren\'t providing the resource Id of an existing virtual network.')
 param vnetName string = ''
+
+@description('Conditional. The name of the resource group where the virtual network will be deployed. Required when "enableVnetIntegration" is set to true and you aren\'t providing the resource Id of an existing virtual network.')
+param networkResourceGroupName string = ''
 
 @description('Optional. The address prefix of the virtual network used Virtual Network Integration.')
 param vnetAddressPrefix string = '10.0.0.0/16'
@@ -120,7 +133,7 @@ param storagePrivateEndpointSubnetName string = 'storage-subnet'
 @description('Optional. The address prefix of the subnet used for private Endpoints.')
 param storagePrivateEndpointSubnetAddressPrefix string = '10.0.1.0/24'
 
-//  only required when EnablePublicAccess is set to false
+//  only required when enableInboundPrivateEndpoint is set to false
 @description('Optional. The name of the subnet used by the function App for inbound access when public access is disabled.')
 param functionAppInboundSubnetName string = 'fa-inbound-subnet'
 
@@ -129,7 +142,7 @@ param functionAppInboundSubnetAddressPrefix string = '10.0.2.0/24'
 
 // Private DNS Zones
 
-@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enablePublicAccess" is set to false.')
+@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enableInboundPrivateEndpoint" is set to false.')
 param functionAppPrivateDnsZoneId string = ''
 
 @description('Conditional. The resource Id of the blob storage Private DNS Zone. Required when "enableVnetIntegration" is set to true.')
@@ -178,6 +191,9 @@ Must be provided in the following 'TagsByResource' format: (JSON)
 ''')
 param tags object = {}
 
+@description('Do not change. Used for deployment naming.')
+param timestamp string = utcNow('yyyyMMddhhmmss')
+
 var locations = loadJsonContent('../../data/locations.json')
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
@@ -188,54 +204,7 @@ var hostingPlanSku = {
   tier: split(hostingPlanPricing, '_')[0]
 }
 
-var functionsWorkerRuntime = runtimeVersion == '.NET Framework 4.8' || contains(runtimeVersion, 'Isolated') ? '${runtimeStack}-isolated' : runtimeStack
-var firstRuntimeVersion = split(runtimeVersion, ' ')[0]
-var decimalRuntimeVersion = runtimeVersion == '.NET Framework 4.8' ? '4.0' : runtimeStack == 'dotnet' && length(firstRuntimeVersion) == 1 ? '${firstRuntimeVersion}.0' : firstRuntimeVersion
-var linuxRuntimeStack = contains(functionsWorkerRuntime, 'dotnet') ? toUpper(functionsWorkerRuntime) : runtimeStack == 'node' ? 'Node' : runtimeStack == 'powershell' ? 'PowerShell' : runtimeStack == 'python' ? 'Python' : runtimeStack == 'java' ? 'Java' : null
 
-var commonAppSettings = {
-  APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
-  APPINSIGHTS_INSTRUMENTATIONKEY: applicationInsights.properties.InstrumentationKey
-  AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  WEBSITE_CONTENTSHARE: toLower(functionAppName)
-  FUNCTIONS_EXTENSION_VERSION: '~4'
-  FUNCTIONS_WORKER_RUNTIME: functionsWorkerRuntime
-}
-
-var isolatedAppSettings = {
-  WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED: '1'
-}
-
-var windowsAppSettings = {
-  WEBSITE_NODE_DEFAULT_VERSION: '~${decimalRuntimeVersion}'
-}
-
-var appSettingsTemp = functionAppKind == 'functionapp' ? union(commonAppSettings, windowsAppSettings) : commonAppSettings
-var appSettings = contains(functionsWorkerRuntime, 'isolated') ? union(appSettingsTemp, isolatedAppSettings) : appSettingsTemp
-
-var storagePrivateEndpoints = enableVnetIntegration ? [
-  {
-    name: replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountName), 'service', 'blob')
-    privateDnsZoneId: storageBlobDnsZoneId 
-    service: 'blob'
-  }
-  {
-    name: replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountName), 'service', 'file')
-    privateDnsZoneId: storageFileDnsZoneId
-    service: 'file'
-  }
-  {
-    name: replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountName), 'service', 'queue')
-    privateDnsZoneId: storageQueueDnsZoneId
-    service: 'queue'
-  }
-  {
-    name: replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountName), 'service', 'table')
-    privateDnsZoneId: storageTableDnsZoneId
-    service: 'table'
-  }
-] : []
 
 var subnetsCommon = [
   {
@@ -264,7 +233,7 @@ var subnetsCommon = [
   }
 ]
 
-var subnetsPublicAccessDisabled = [
+var subnetInboundPrivateEndpoint = [
   {
     name: functionAppInboundSubnetName
     properties: {
@@ -275,291 +244,91 @@ var subnetsPublicAccessDisabled = [
   }
 ]
 
-resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = if( enableVnetIntegration && empty(functionAppOutboundSubnetId) ) {
-  name: !empty(vnetName) ? vnetName : replace(nameConvVnet, 'purpose', hostingPlanName)
+var storagePrivateDnsZoneNames =  [
+  'privatelink.blob.${environment().suffixes.storage}'
+  'privatelink.file.${environment().suffixes.storage}'
+  'privatelink.queue.${environment().suffixes.storage}'
+  'privatelink.table.${environment().suffixes.storage}'
+]
+
+var websiteSuffixes = {
+  azurecloud: 'azurewebsites.net'
+  azureusgovernment: 'azurewebsites.us'
+  usnat: 'azurewebsites.eaglex.ic.gov'
+}
+
+var webSitePrivateDnsZoneName = [
+  'privatelink.${websiteSuffixes[environment().name]}'
+]
+
+var deployVNet = enableVnetIntegration && empty(functionAppOutboundSubnetId)
+
+resource functionAppResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: functionAppResourceGroupName
   location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: [
-        vnetAddressPrefix
-      ]
-    }
-    subnets: enablePublicAccess ? subnetsCommon : union(subnetsCommon, subnetsPublicAccessDisabled)
-  }
 }
 
-/*
-resource subnets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = if( enableVnetIntegration && empty(functionAppOutboundSubnetId) ) {
-  name: functionAppOutboundSubnetName
-  parent: vnet
-  properties: {
-    privateEndpointNetworkPolicies: 'Enabled'
-    privateLinkServiceNetworkPolicies: 'Enabled'
-    delegations: [
-      {
-        name: 'webapp'
-        properties: {
-          serviceName: 'Microsoft.Web/serverFarms'
-        }
-      }
-    ]
-    addressPrefix: functionAppOutboundSubnetAddressPrefix
-  }
-}
-*/
-
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: toLower(storageAccountName)
+resource hostingPlanResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) ){
+  name: hostingPlanResourceGroupName
   location: location
-  tags: contains(tags, 'Microsoft.Storage/storageAccounts') ? tags['Microsoft.Storage/storageAccounts'] : {}
-  sku: {
-    name: 'Standard_LRS'
-  }
-  kind: 'StorageV2'
-  properties: {
-    accessTier: 'Hot'
-    allowBlobPublicAccess: false
-    allowedCopyScope: 'PrivateLink'
-    allowCrossTenantReplication: false
-    allowSharedKeyAccess: false
-    defaultToOAuthAuthentication: false
-    encryption: {
-      keySource: 'Microsoft.Storage'
-      requireInfrastructureEncryption: true
-      services: {
-        blob: {
-          enabled: true
-        }
-        file: {
-          enabled: true
-        }
-        queue: {
-          enabled: true
-        }
-        table: {
-          enabled: true
-        }
-      }
-    }
-    largeFileSharesState: 'Enabled'
-    minimumTlsVersion: 'TLS1_2'
-    networkAcls: {
-      bypass: 'AzureServices'
-      defaultAction: 'Deny'
-      ipRules: []
-      virtualNetworkRules: []
-    }
-    publicNetworkAccess: enableVnetIntegration ? 'Disabled' : 'Enabled'
-    sasPolicy: {
-      expirationAction: 'Log'
-      sasExpirationPeriod: '180.00:00:00'
-    }
-  }
-  resource blobServices 'blobServices' = {
-    name: 'default'
-  }
-  resource fileServices 'fileServices' = {
-    name: 'default'
-    resource fileShare 'shares' = {
-      name: toLower(functionAppName)
-      properties: {
-        enabledProtocols: 'SMB'
-        shareQuota: 5120
-      }
-    }
-  }
 }
 
-resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableVnetIntegration) {
-  name: privateEndpoint.name
+resource networkResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if(deployVNet) {
+  name: networkResourceGroupName
   location: location
-  tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : {}
-  properties: {
-    privateLinkServiceConnections: [
-      {
-        name: '${privateEndpoint.name}-connection'
-        properties: {
-          privateLinkServiceId: storageAccount.id
-          groupIds: [privateEndpoint.service]          
-        }
-      }
-    ]
-    subnet: {
-      id: !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : vnet.properties.subnets[1].id
-    }      
-  }
-}]
-
-/*
-resource storageAccount_PrivateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for (privateEndpoint,i) in storagePrivateEndpoints: if(enableVnetIntegration) {
-  name: 'privatelink.${privateEndpoint.service}.${environment().suffixes.storage}' 
-}]
-*/
-
-resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableVnetIntegration) {
-  name: '${privateEndpoint.name}-group'
-  parent: storageAccount_privateEndpoints[i]
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: '${last(split(privateEndpoint.privateDnsZoneId, '/'))}-config'
-        properties: {
-          privateDnsZoneId: privateEndpoint.privateDnsZoneId
-        }
-      }
-    ]
-  }
-}]
-
-resource storageAccount_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(!empty(logAnalyticsWorkspaceId)) {
-  name: '${storageAccountName}-diagnosticSettings'
-  properties: {
-    metrics: [
-      {
-        category: 'Transaction'
-        enabled: true
-      }
-    ]
-    workspaceId: logAnalyticsWorkspaceId
-  }
-  scope: storageAccount
 }
 
-resource storageAccount_blob_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(!empty(logAnalyticsWorkspaceId)) {
-  name: '${storageAccountName}-logs'
-  scope: storageAccount::blobServices
-  properties: {
-    workspaceId: logAnalyticsWorkspaceId
-    logs: [
-      {
-        category: 'StorageWrite'
-        enabled: true
-      }
-    ]
-    metrics: [
-      {
-        category: 'Transaction'
-        enabled: true
-      }
-    ]
+module networking 'modules/networking.bicep' = if(deployVNet) {
+  name: 'networking-${timestamp}'
+  scope: networkResourceGroup
+  params: {
+    location: location
+    privateDnsZoneNames: enableInboundPrivateEndpoint ? union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName) : storagePrivateDnsZoneNames
+    vnetName: !empty(vnetName) ? vnetName : replace(nameConvVnet, 'purpose', hostingPlanName)
+    vnetAddressPrefix: vnetAddressPrefix
+    subnets: enableInboundPrivateEndpoint ? subnetsCommon : union(subnetsCommon, subnetInboundPrivateEndpoint)
   }
 }
 
-resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = if (hostingPlanType != 'Consumption' && empty(hostingPlanId)) {
-  name: hostingPlanName
-  location: location
-  sku: hostingPlanSku
-  tags: contains(tags, 'Microsoft.Web/serverfarms') ? tags['Microsoft.Web/serverfarms'] : {}
-  properties: {
-    maximumElasticWorkerCount: functionAppKind == 'FunctionsPremium' ? 20 : null
-    reserved: contains(functionAppKind, 'linux') ? true : false
+module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) ){
+  name: 'hostingPlan-${timestamp}'
+  scope: hostingPlanResourceGroup
+  params: {
+    functionAppKind: functionAppKind
+    location: location
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
+    name: hostingPlanName
+    sku: hostingPlanSku
+    tags: tags
     zoneRedundant: hostingPlanZoneRedundant
-    numberOfWorkers: hostingPlanZoneRedundant? 3 : 1
   }
 }
 
-resource hostingPlan_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(hostingPlanType != 'Consumption' && empty(hostingPlanId)) {
-  name: '${hostingPlanName}-diagnosticSettings'
-  properties: {
-    metrics: [
-      {
-        category: 'AllMetrics'
-        enabled: true
-      }
-    ]
-    workspaceId: logAnalyticsWorkspaceId
+module functionAppResources 'modules/functionAppResources.bicep' = {
+  name: 'functionAppResources-${timestamp}'
+  scope: functionAppResourceGroup
+  params: {
+    enableApplicationInsights: enableApplicationInsights
+    enablePublicAccess: enablePublicAccess
+    enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
+    enableVnetIntegration: enableVnetIntegration
+    functionAppKind: functionAppKind
+    functionAppName: functionAppName
+    hostingPlanId: hostingPlanType != 'Consumption' ? ( !empty(hostingPlanId) ? hostingPlanId : hostingPlan.outputs.hostingPlanId ) : ''
+    location: location
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
+    runtimeStack: runtimeStack
+    runtimeVersion: runtimeVersion
+    storageAccountName: storageAccountName
+    tags: tags    
+    nameConvPrivEndpoints: nameConvPrivEndpoints
+    functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
+    storageAccountPrivateEndpointSubnetId: enableVnetIntegration ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
+    functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : '' 
+    storageBlobDnsZoneId: enableVnetIntegration ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
+    storageFileDnsZoneId: enableVnetIntegration ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
+    storageQueueDnsZoneId: enableVnetIntegration ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
+    storageTableDnsZoneId: enableVnetIntegration ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
+    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
   }
-  scope: hostingPlan
-}
-
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if(enableApplicationInsights) {
-  name: '${functionAppName}-insights'
-  kind: 'web'
-  location: location
-  properties: {
-    Application_Type: 'web'
-    WorkspaceResourceId: !empty(logAnalyticsWorkspaceId) ? logAnalyticsWorkspaceId : null
-  }
-  tags: contains(tags, 'Microsoft.Insights/components') ? tags['Microsoft.Insights/components'] : {}
-}
-
-resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
-  name: functionAppName
-  kind: functionAppKind
-  location: location
-  tags: contains(tags, 'Microsoft.Web/sites') ? tags['Microsoft.Web/sites'] : {}
-  properties: {
-    publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
-    serverFarmId: !empty(hostingPlanId) ? hostingPlanId : ( hostingPlanType != 'Consumption' ? hostingPlan.id : null )
-    siteConfig: {
-      linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
-      netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${decimalRuntimeVersion}' : null
-    }
-    virtualNetworkSubnetId: enableVnetIntegration ? (!empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : vnet.properties.subnets[0].id) : null
-    vnetImagePullEnabled: enableVnetIntegration ? true : false
-    vnetContentShareEnabled: enableVnetIntegration ? true : false
-    vnetRouteAllEnabled: enableVnetIntegration ? true : false
-  }
-}
-
-resource functionAppSettings 'Microsoft.Web/sites/config@2022-09-01' = {
-  name: 'appsettings'
-  kind: functionAppKind
-  parent: functionApp
-  properties: appSettings
-}
-
-resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(!enablePublicAccess) {
-  name: replace(replace(nameConvPrivEndpoints, 'resourceName', functionAppName), 'service', 'sites')
-  location: location
-  properties: {
-    privateLinkServiceConnections: [
-      {
-        name: 'pe-${functionAppName}-sites-connection'
-        properties: {
-          privateLinkServiceId: functionApp.id
-          groupIds: ['sites']          
-        }
-      }
-    ]
-    subnet: {
-      id: enablePublicAccess ? null : !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : vnet.properties.subnets[2].id
-    }      
-  }
-  tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : {}
-}
-
-resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if(!enablePublicAccess) {
-  name: '${functionApp_PrivateEndpoint.name}-group'
-  parent: functionApp_PrivateEndpoint
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: !empty(functionAppPrivateDnsZoneId) ? '${last(split(functionAppPrivateDnsZoneId, '/'))}-config' : null
-        properties: {
-          privateDnsZoneId: enablePublicAccess || empty(functionAppPrivateDnsZoneId) ? null : functionAppPrivateDnsZoneId
-        }
-      }
-    ]
-  }
-}
-
-resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
-  name: '${functionAppName}-diagnosticSettings'
-  properties: {
-    logs: [
-      {
-        category: 'FunctionAppLogs'
-        enabled: true
-      }
-    ]
-    metrics: [
-      {
-        category: 'AllMetrics'
-        enabled: true
-      }
-    ]
-    workspaceId: logAnalyticsWorkspaceId
-  }
-  scope: functionApp
 }

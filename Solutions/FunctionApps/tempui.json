@@ -14,6 +14,61 @@
                             "type": "Microsoft.Common.ResourceScope"
                         },
                         {
+                            "type":"Microsoft.Common.ResourceGroupSelector",
+                            "name": "resourceGroup",
+                            "allowedMode": "Both",
+                            "required": false,
+                            "scope": {
+                                "subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
+                            },
+                            "visible": true
+                        },
+                        {
+							"name": "functionAppStacksApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat('/providers/', 'Microsoft.Web/locations/', steps('basics').resourceScope.location.name, '/functionAppStacks?api-version=2022-03-01')]"
+							}
+						},
+                        {
+                            "name": "runtimeStackName",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Runtime Stack",
+                            "multiLine": true,
+                            "toolTip": "The runtime stack used by the function App.",
+                            "constraints": {
+                                "required": true,
+                                "allowedValues": "[map(steps('basics').functionAppStacksApi.value, (item) => parse(concat('{\"label\":\"', item.properties.displayText, '\",\"description\":\"Preferred OS: ', item.properties.preferredOs, '\",\"value\":\"', item.name, '\"}')))]"
+                            },
+                            "visible": true
+                        },
+                        {
+                            "name": "runtimeStackMajorVersion",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Runtime stack Major Version",
+                            "multiLine": true,
+                            "toolTip": "The runtime stack used by the function App.",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": "[map(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.displayText, '\"}')))]"
+                            },
+                            "visible": true
+                        },
+                        {
+                            "name": "runtimeStackMinorVersion",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "Runtime Stack Minor Version",
+                            "defaultValue": "[steps('basics').runtimeStackMajorVersion]",
+                            "multiLine": true,
+                            "toolTip": "The runtime stack used by the function App.",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": "[map(first(map(filter(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => equals(item.displayText, steps('basics').runtimeStackMajorVersion)), (item) => item.minorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.value, '\"}')))]"
+                            },
+                            "visible": true
+                        },                  
+                        {
 							"name": "virtualNetworksApi",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
@@ -61,9 +116,9 @@
                             "visible": true
                         },
                         {
-                            "name": "subnet",
+                            "name": "outboundsubnet",
                             "type": "Microsoft.Common.DropDown",
-                            "label": "Subnet",
+                            "label": "Outbound Subnet",
                             "multiLine": true,
                             "toolTip": "Select the subnet to which the function app will be integrated.",
                             "constraints": {
@@ -71,7 +126,31 @@
                                 "allowedValues": "[map(filter(steps('basics').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Linked to App Service Plan: ', last(split(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '/')), '\",\"value\":\"', item.id, '\"}')))]"
                             },
                             "visible": true
-                        }                   
+                        },
+                        {
+                            "name": "pesubnet",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "PE Subnet",
+                            "multiLine": true,
+                            "toolTip": "Select the subnet on which private endpoints will be attached.",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": "[map(filter(steps('basics').subnetsApi.value, (item) => and(empty(item.properties.delegations), equals(item.properties.privateEndpointNetworkPolicies, 'Disabled'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+                            },
+                            "visible": true
+                        },
+                        {
+                            "name": "newAspSubnet",
+                            "type": "Microsoft.Common.DropDown",
+                            "label": "New ASP Subnet",
+                            "multiLine": true,
+                            "toolTip": "Select the for the ASP.",
+                            "constraints": {
+                                "required": false,
+                                "allowedValues": "[map(filter(filter(steps('basics').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+                            },
+                            "visible": true
+                        }                       
                         
                     ]
                 }
@@ -79,18 +158,26 @@
         },
         "outputs": {
             "parameters": {
-                "location": "[steps('basics').resourceScope.location.name]",
-                "localVnets": "[map(filter(steps('basics').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]",
-                "subnets": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]",
+                "vNets": "[map(filter(steps('basics').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]",
+                "peSubnets": "[map(filter(steps('basics').subnetsApi.value, (item) => and(empty(item.properties.delegations), equals(item.properties.privateEndpointNetworkPolicies, 'Disabled'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]",
 
-                "test": "[map(filter(steps('basics').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Delegated to App Service Plan: ', last(split(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '/')), '\",\"value\":\"', item.id, '\"}')))]",
+                /* Need to ensure that we only show the subnet that has the serviceAssociationLink that matches the existingHostingPlanId */
+                "outboundSubnets": "[map(filter(steps('basics').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Linked to App Service Plan: ', last(split(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '/')), '\",\"value\":\"', item.name, '\"}')))]",
 
-                "subnetId": "[steps('basics').subnet]",
+                /* Need to ensure that we only show subnets that have a delegation to Microsoft.Web/serverfarms and has no associations */
+                "newSubnets": "[map(filter(filter(steps('basics').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]",
+
+
+                "testwithoutFilter": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', first(map(item.properties.delegations, (del) => del.properties.serviceName)), '\"}'))) ]",
+
+                "minorVersionsFiltered": "[map(filter(first(map(filter(first(map(filter(steps('basics').functionAppStacksApi.value, (stack) => equals(stack.name, steps('basics').runtimeStackName)), (stack) => stack.properties.majorVersions)), (majVer) => equals(majVer.displayText, steps('basics').runtimeStackMajorVersion)), (majVer) => majVer.minorVersions)), (minVer) => not(equals(minVer.stackSettings.linuxRuntimeSettings.isDeprecated, true))), (minVer) => parse(concat('{\"label\":\"', minVer.displayText, '\",\"value\":\"', minVer.value, '\"}')))]",
+                
+                "resourceGroup": "[steps('basics').resourceGroup]"
 
 
 
 
-                "filteredSubnets": "[map(steps('basics').subnetsApi.value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"', first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), '\",\"value\":\"', item.id, '\"}')))]"
+                
             },
             "kind": "Subscription",
             "location": "[steps('basics').resourceScope.location.name]",
