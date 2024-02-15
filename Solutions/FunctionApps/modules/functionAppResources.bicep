@@ -6,8 +6,8 @@ param nameConvPrivEndpoints string
 param logAnalyticsWorkspaceId string
 param functionAppKind string
 param enableInboundPrivateEndpoint bool
+param enableStoragePrivateEndpoints bool
 param enablePublicAccess bool
-param enableVnetIntegration bool
 param functionAppInboundSubnetId string
 param functionAppOutboundSubnetId string
 param runtimeVersion string
@@ -47,7 +47,7 @@ var windowsAppSettings = {
 var appSettingsTemp = functionAppKind == 'functionapp' ? union(commonAppSettings, windowsAppSettings) : commonAppSettings
 var appSettings = contains(functionsWorkerRuntime, 'isolated') ? union(appSettingsTemp, isolatedAppSettings) : appSettingsTemp
 
-var storagePrivateEndpoints = enableVnetIntegration ? [
+var storagePrivateEndpoints = enableStoragePrivateEndpoints ? [
   {
     name: replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountName), 'service', 'blob')
     privateDnsZoneId: storageBlobDnsZoneId 
@@ -111,7 +111,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
       ipRules: []
       virtualNetworkRules: []
     }
-    publicNetworkAccess: enableVnetIntegration ? 'Disabled' : 'Enabled'
+    publicNetworkAccess: enableStoragePrivateEndpoints ? 'Disabled' : 'Enabled'
     sasPolicy: {
       expirationAction: 'Log'
       sasExpirationPeriod: '180.00:00:00'
@@ -132,7 +132,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
-resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableVnetIntegration) {
+resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableStoragePrivateEndpoints) {
   name: privateEndpoint.name
   location: location
   tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : {}
@@ -152,7 +152,7 @@ resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@202
   }
 }]
 
-resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableVnetIntegration) {
+resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storagePrivateEndpoints: if(enableStoragePrivateEndpoints) {
   name: '${privateEndpoint.name}-group'
   parent: storageAccount_privateEndpoints[i]
   properties: {
@@ -225,9 +225,9 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${decimalRuntimeVersion}' : null
     }
     virtualNetworkSubnetId: !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : null
-    vnetImagePullEnabled: enableVnetIntegration ? true : false
-    vnetContentShareEnabled: enableVnetIntegration ? true : false
-    vnetRouteAllEnabled: enableVnetIntegration ? true : false
+    vnetImagePullEnabled: enableStoragePrivateEndpoints ? true : false
+    vnetContentShareEnabled: enableStoragePrivateEndpoints ? true : false
+    vnetRouteAllEnabled: enableStoragePrivateEndpoints ? true : false
   }
 }
 

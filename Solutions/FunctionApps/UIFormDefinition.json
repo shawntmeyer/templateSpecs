@@ -567,14 +567,6 @@
 									}
 								},
 								{
-									"name": "newVNetTextBlock",
-									"type": "Microsoft.Common.TextBlock",
-									"visible": "[equals(steps('networking').virtualNetwork.newVNet, true)]",
-									"options": {
-										"text": "Specify the virtual network name, resource group, and virtual network address prefix to which the function app and new service plan will be integrated."
-									}
-								},
-								{
 									"name": "networksSubscription",
 									"type": "Microsoft.Common.DropDown",
 									"label": "Virtual Networks Subscription",
@@ -600,12 +592,20 @@
 									"visible": "[equals(steps('networking').virtualNetwork.newVNet, false)]"
 								},
 								{
+									"name": "newVNetTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[equals(steps('networking').virtualNetwork.newVNet, true)]",
+									"options": {
+										"text": "Specify the virtual network name, resource group, and virtual network address prefix to which the function app and new service plan will be integrated. All networking resources will be deployed to this resource group. Naming of the virtual network and resource group could be based on a shared model or specific to the app service plan deployed via this solution."
+									}
+								},
+								{
 									"name": "vnetName",
 									"type": "Microsoft.Common.TextBox",
 									"label": "Virtual Network Name",
 									"subLabel": "",
-									"defaultValue": "[concat('vnet-', steps('basics').functionAppName)]",
-									"toolTip": "Specify the name of the new Virtual Network to create for Function App Virtual Network Integration.",
+									"defaultValue": "[concat('vnet-', steps('basics').hosting.hostingPlanName)]",
+									"toolTip": "Specify the name of the new Virtual Network to create for Function App Virtual Network Integration. This vnet and associated resources will be deployed to the resource group selected in the 'Hosting Plan' section of the 'Basics' blade.",
 									"constraints": {
 										"required": false,
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}[a-zA-Z0-9_]?$",
@@ -615,15 +615,16 @@
 								},
 								{
 									"type":"Microsoft.Common.ResourceGroupSelector",
-									"name": "virtualNetworkResourceGroup",
-									"label": "Virtual Network Resource Group",
+									"name": "networkingResourceGroup",
 									"allowedMode": "Both",
 									"required": false,
+									"label": "Networking Resource Group",
+									"defaultValue": "[steps('basics').functionAppResourceGroup.value.name]",
 									"scope": {
 										"subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
 									},
 									"visible": "[steps('networking').virtualNetwork.newVNet]"
-								},	
+								},			
 								{
 									"name": "vnetAddressPrefix",
 									"type": "Microsoft.Common.TextBox",
@@ -671,7 +672,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Inbound subnet name",
 									"placeholder": "",
-									"defaultValue": "fa-inbound",
+									"defaultValue": "func-apps-inbound",
 									"toolTip": "Provide the name of the inbound subnet",
 									"constraints": {
 										"required": true,
@@ -790,10 +791,10 @@
 								{
 									"name": "subnetName",
 									"type": "Microsoft.Common.TextBox",
-									"label": "Inbound subnet name",
+									"label": "Outbound subnet name",
 									"placeholder": "",
-									"defaultValue": "snet-fa-outbound",
-									"toolTip": "Provide the name of the inbound subnet",
+									"defaultValue": "[concat('snet-', steps('basics').functionAppName, '-outbound')]",
+									"toolTip": "Provide the name of the outbound subnet",
 									"constraints": {
 										"required": true,
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
@@ -893,7 +894,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Storage account subnet name",
 									"placeholder": "",
-									"defaultValue": "snet-storage",
+									"defaultValue": "snet-function-apps-storage",
 									"toolTip": "Provide the name of the storage account private endpoint subnet",
 									"constraints": {
 										"required": true,
@@ -1122,6 +1123,8 @@
 							"resources": [
 								"Microsoft.Insights/components",
 								"Microsoft.Network/privateEndpoints",
+								"Microsoft.Network/privateDnsZones",
+								"Microsoft.Network/virtualNetworks",
 								"Microsoft.Storage/storageAccounts",
 								"Microsoft.Web/sites",
 								"Microsoft.Web/serverFarms"
@@ -1151,13 +1154,15 @@
 				"hostingPlanZoneRedundant": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.zoneRedundant, false)]",
                 "storageAccountName": "[steps('storage').name]",
 				"enablePublicAccess": "[steps('networking').publicAccess]",
+				"deployNetworking": "[if(steps('networking').networkInjection, steps('networking').virtualNetwork.newVNet, false)]",
 				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",
-                "enableVNetIntegration": "[steps('networking').outboundAccess.enableVNetIntegration]",
-				"functionAppInboundSubnetId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
-				"functionAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
-				"storagePrivateEndpointSubnetId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.peSubnet, '')]",
+                "enableVNetIntegration": "[if(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration, false)]",
+				"functionAppInboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
+				"functionAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
+				"enableStoragePrivateEndpoints": "[if(and(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').storagePrivateEndpoints.enablePE, false)]",
+				"storagePrivateEndpointSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.peSubnet, '')]",
 				"vnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetName, '')]",
-				"networkResourceGroupName": "[if(steps('networking').virtualNetwork.newVNet, steps('networking').virtualNetwork.vnetResourceGroup.value.name, '')]",
+				"networkingResourceGroupName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.networkingResourceGroup.value.name, '')]",
 				"vnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
 				"functionAppInboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
 				"functionAppInboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
@@ -1165,11 +1170,11 @@
 				"functionAppOutboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
 				"storagePrivateEndpointSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
 				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",				
-				"functionAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), equals(steps('networking').publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
-				"storageBlobDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
-				"storageFileDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
-				"storageQueueDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.queuePrivateDnsZone, '')]",
-				"storageTableDnsZoneId": "[if(and(equals(steps('networking').virtualNetork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
+				"functionAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), equals(steps('networking').publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
+				"storageBlobDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
+				"storageFileDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
+				"storageQueueDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.queuePrivateDnsZone, '')]",
+				"storageTableDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
 				"logAnalyticsWorkspaceId": "[if(equals(steps('monitoring').diagnostics.enableDiagnostics, true), steps('monitoring').diagnostics.logAnalyticsWorkspace.id, '')]",
 				"enableApplicationInsights": "[steps('monitoring').appInsights.enableApplicationInsights]",
                 "tags": "[steps('tags').tags]"

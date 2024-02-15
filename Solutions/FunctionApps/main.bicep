@@ -99,6 +99,9 @@ param enableInboundPrivateEndpoint bool = false
 @description('Optional. Indicates whether outbound traffic from the function App should be routed through a private endpoint.')
 param enableVnetIntegration bool = true
 
+@description('Optional. Indicates whether a new Vnet and associated resources should be deployed to support the hosting plan and function app.')
+param deployNetworking bool = false
+
 //  existing Subnets
 
 @description('Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when "enableInboundPrivateEndpoint" is set to false and you aren\'t creating a new vnet and subnets.')
@@ -112,49 +115,52 @@ param storagePrivateEndpointSubnetId string = ''
 
 //  new Virtual Network (only used when the existing subnets aren't specified. Fill in all values where needed.)
 
-@description('Conditional. The name of the virtual network used for Virtual Network Integration. Required when "enableVnetIntegration" is set to true and you aren\'t providing the resource Id of an existing virtual network.')
+@description('Conditional. The name of the virtual network used for Virtual Network Integration. Required when "enableVnetIntegration" is set to true and "deployNetworking" = true.')
 param vnetName string = ''
 
-@description('Conditional. The name of the resource group where the virtual network will be deployed. Required when "enableVnetIntegration" is set to true and you aren\'t providing the resource Id of an existing virtual network.')
-param networkResourceGroupName string = ''
+@description('Conditional. The name of the resource group where the virtual network is deployed. Required when "enableVnetIntegration" is set to true and "deployNetworking" = true.')
+param networkingResourceGroupName string = ''
 
 @description('Optional. The address prefix of the virtual network used Virtual Network Integration.')
 param vnetAddressPrefix string = '10.0.0.0/16'
 
-@description('Optional. The name of the subnet used by the function App for Virtual Network Integration.')
+@description('Optional. The name of the subnet used by the function App for Virtual Network Integration. Used when "enableVnetIntegration" is set to true and "deployNetworking" = true.')
 param functionAppOutboundSubnetName string = 'fa-outbound-subnet'
 
-@description('Optional. The address prefix of the subnet used by the function App for Virtual Network Integration.')
+@description('Optional. The address prefix of the subnet used by the function App for Virtual Network Integration. Used when "enableVnetIntegration" is set to true and "deployNetworking" = true.')
 param functionAppOutboundSubnetAddressPrefix string = '10.0.0.0/24'
 
-@description('Optional. The name of the subnet used for private Endpoints.')
+@description('Optional. Determines whether private endpoints are used on the function app storage account. Used when "enableVnetIntegration" is set to true.')
+param enableStoragePrivateEndpoints bool = true
+
+@description('Optional. The name of the subnet used for private Endpoints. Used when "enableVnetIntegration", "enableStoragePrivateEndpoints", and "deployNetworking" are all set to  "true".')
 param storagePrivateEndpointSubnetName string = 'storage-subnet'
 
-@description('Optional. The address prefix of the subnet used for private Endpoints.')
+@description('Optional. The address prefix of the subnet used for private Endpoints. Used when "enableVnetIntegration", "enableStoragePrivateEndpoints", and "deployNetworking" are all set to  "true".')
 param storagePrivateEndpointSubnetAddressPrefix string = '10.0.1.0/24'
 
 //  only required when enableInboundPrivateEndpoint is set to false
-@description('Optional. The name of the subnet used by the function App for inbound access when public access is disabled.')
+@description('Optional. The name of the subnet used by the function App for inbound access when public access is disabled. Used when "enableInboundPrivateEndpoint" and "deployNetworking" = true.')
 param functionAppInboundSubnetName string = 'fa-inbound-subnet'
 
-@description('Optional. The address prefix of the subnet used by the function App for inbound access when public access is disabled.')
+@description('Optional. The address prefix of the subnet used by the function App for inbound access when public access is disabled. Used when "enableInboundPrivateEndpoint" and "deployNetworking" = true.')
 param functionAppInboundSubnetAddressPrefix string = '10.0.2.0/24'
 
 // Private DNS Zones
 
-@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enableInboundPrivateEndpoint" is set to false.')
+@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enableInboundPrivateEndpoint" = false and "deployNetworking" = false.')
 param functionAppPrivateDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the blob storage Private DNS Zone. Required when "enableVnetIntegration" is set to true.')
+@description('Conditional. The resource Id of the blob storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageBlobDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the file storage Private DNS Zone. Required when "enableVnetIntegration" is set to true.')
+@description('Conditional. The resource Id of the file storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageFileDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the queue storage Private DNS Zone. Required when "enableVnetIntegration" is set to true.')
+@description('Conditional. The resource Id of the queue storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageQueueDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the table storage Private DNS Zone. Required when "enableVnetIntegration" is set to true.')
+@description('Conditional. The resource Id of the table storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageTableDnsZoneId string = ''
 
 // tags
@@ -204,9 +210,7 @@ var hostingPlanSku = {
   tier: split(hostingPlanPricing, '_')[0]
 }
 
-
-
-var subnetsCommon = [
+var subnetOutbound = enableVnetIntegration ? [
   {
     name: functionAppOutboundSubnetName
     properties: {
@@ -223,6 +227,9 @@ var subnetsCommon = [
       addressPrefix: functionAppOutboundSubnetAddressPrefix
     }
   }
+] : []
+
+var subnetStoragePrivateEndpoints = enableStoragePrivateEndpoints ? [
   {
     name: storagePrivateEndpointSubnetName
     properties: {
@@ -231,9 +238,9 @@ var subnetsCommon = [
       addressPrefix: storagePrivateEndpointSubnetAddressPrefix
     }
   }
-]
+] : []
 
-var subnetInboundPrivateEndpoint = [
+var subnetInboundPrivateEndpoint = enableInboundPrivateEndpoint ? [
   {
     name: functionAppInboundSubnetName
     properties: {
@@ -242,14 +249,14 @@ var subnetInboundPrivateEndpoint = [
       addressPrefix: functionAppInboundSubnetAddressPrefix
     }
   }
-]
+] : []
 
-var storagePrivateDnsZoneNames =  [
+var storagePrivateDnsZoneNames =  enableStoragePrivateEndpoints ? [
   'privatelink.blob.${environment().suffixes.storage}'
   'privatelink.file.${environment().suffixes.storage}'
   'privatelink.queue.${environment().suffixes.storage}'
   'privatelink.table.${environment().suffixes.storage}'
-]
+] : []
 
 var websiteSuffixes = {
   azurecloud: 'azurewebsites.net'
@@ -257,44 +264,49 @@ var websiteSuffixes = {
   usnat: 'azurewebsites.eaglex.ic.gov'
 }
 
-var webSitePrivateDnsZoneName = [
+var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
   'privatelink.${websiteSuffixes[environment().name]}'
-]
-
-var deployVNet = enableVnetIntegration && empty(functionAppOutboundSubnetId)
+] : []
 
 resource functionAppResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: functionAppResourceGroupName
   location: location
 }
 
-resource hostingPlanResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) ){
+resource hostingPlanResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) && hostingPlanResourceGroupName != functionAppResourceGroupName){
   name: hostingPlanResourceGroupName
   location: location
 }
 
-resource networkResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if(deployVNet) {
-  name: networkResourceGroupName
+resource networkingResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint) && networkingResourceGroupName != functionAppResourceGroupName && networkingResourceGroupName != hostingPlanResourceGroupName) {
+  name: networkingResourceGroupName
   location: location
 }
 
-module networking 'modules/networking.bicep' = if(deployVNet) {
+
+module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
   name: 'networking-${timestamp}'
-  scope: networkResourceGroup
+  scope: resourceGroup(networkingResourceGroupName)
   params: {
     location: location
-    privateDnsZoneNames: enableInboundPrivateEndpoint ? union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName) : storagePrivateDnsZoneNames
+    privateDnsZoneNames: union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName)
+    subnets: union(subnetOutbound, subnetStoragePrivateEndpoints, subnetInboundPrivateEndpoint)
+    timestamp: timestamp
     vnetName: !empty(vnetName) ? vnetName : replace(nameConvVnet, 'purpose', hostingPlanName)
     vnetAddressPrefix: vnetAddressPrefix
-    subnets: enableInboundPrivateEndpoint ? subnetsCommon : union(subnetsCommon, subnetInboundPrivateEndpoint)
+    tags: tags
   }
+  dependsOn: [
+    networkingResourceGroup
+  ]
 }
 
 module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) ){
   name: 'hostingPlan-${timestamp}'
-  scope: hostingPlanResourceGroup
+  scope: resourceGroup(hostingPlanResourceGroupName)
   params: {
     functionAppKind: functionAppKind
+    hostingPlanType: hostingPlanType
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     name: hostingPlanName
@@ -302,33 +314,39 @@ module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consump
     tags: tags
     zoneRedundant: hostingPlanZoneRedundant
   }
+  dependsOn: [
+    hostingPlanResourceGroup
+  ]
 }
 
 module functionAppResources 'modules/functionAppResources.bicep' = {
   name: 'functionAppResources-${timestamp}'
-  scope: functionAppResourceGroup
+  scope: resourceGroup(functionAppResourceGroupName)
   params: {
+    location: location
     enableApplicationInsights: enableApplicationInsights
     enablePublicAccess: enablePublicAccess
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
-    enableVnetIntegration: enableVnetIntegration
+    enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     functionAppKind: functionAppKind
     functionAppName: functionAppName
     hostingPlanId: hostingPlanType != 'Consumption' ? ( !empty(hostingPlanId) ? hostingPlanId : hostingPlan.outputs.hostingPlanId ) : ''
-    location: location
-    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion
-    storageAccountName: storageAccountName
-    tags: tags    
+    storageAccountName: storageAccountName   
     nameConvPrivEndpoints: nameConvPrivEndpoints
     functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
-    storageAccountPrivateEndpointSubnetId: enableVnetIntegration ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
+    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
     functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : '' 
-    storageBlobDnsZoneId: enableVnetIntegration ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
-    storageFileDnsZoneId: enableVnetIntegration ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
-    storageQueueDnsZoneId: enableVnetIntegration ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
-    storageTableDnsZoneId: enableVnetIntegration ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
+    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
+    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
+    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
+    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
     functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
+    tags: tags 
   }
+  dependsOn: [
+    functionAppResourceGroup
+  ]
 }

@@ -1,8 +1,10 @@
 param location string
+param privateDnsZoneNames array
 param vnetName string
 param vnetAddressPrefix string
 param subnets array
-param privateDnsZoneNames array
+param tags object
+param timestamp string
 
 resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
   location: location
@@ -13,31 +15,33 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
         vnetAddressPrefix
       ]
     }
-    subnets: subnets
   }
+  tags: contains(tags, 'Microsoft.Network/virtualNetworks') ? tags['Microsoft.Network/virtualNetworks'] : {}
 }
 
 resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for subnet in subnets: {
   name: subnet.name
   parent: vnet
   properties: {
-    addressPrefix: subnet.addressPrefix
+    addressPrefixes: [
+      subnet.properties.addressPrefix
+    ]
   }
 }]
 
-resource dnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for zoneName in privateDnsZoneNames: {
+resource privateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for zoneName in privateDnsZoneNames: {
   name: zoneName
-  location: location  
+  location: 'global'
+  tags: contains(tags, 'Microsoft.Network/privateDnsZones') ? tags['Microsoft.Network/privateDnsZones'] : {}
 }]
 
-resource vnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = [for zoneName in privateDnsZoneNames: {
-  name: zoneName
-  properties: {
-    virtualNetwork: {
-      id: vnet.id
-    }
+module virtualNetworkLinks './virtualNetworkLinks.bicep' = {
+  name: 'virtualNetworkLinks-${timestamp}'
+  params: {
+    vnetId: vnet.id
+    privateDnsZoneNames: privateDnsZoneNames
   }
-}]
+}
 
 output subnetIds array = [for subnet in subnets: '${vnet.id}/subnets/${subnet.name}']
-output privateDnsZoneIds array = [for dnsZoneName in privateDnsZoneNames: resourceId('Microsoft.Network/privateDnsZones', dnsZoneName)]
+output privateDnsZoneIds array = [for zoneName in privateDnsZoneNames: resourceId('Microsoft.Network/privateDnsZones', zoneName)]

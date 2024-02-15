@@ -1,3 +1,4 @@
+param hostingPlanType string
 param location string
 param logAnalyticsWorkspaceId string
 param functionAppKind string
@@ -13,10 +14,10 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   sku: sku
   tags: contains(tags, 'Microsoft.Web/serverfarms') ? tags['Microsoft.Web/serverfarms'] : {}
   properties: {
-    maximumElasticWorkerCount: functionAppKind == 'FunctionsPremium' ? 20 : 1
+    maximumElasticWorkerCount: hostingPlanType == 'FunctionsPremium' ? 20 : 1
     reserved: contains(functionAppKind, 'linux') ? true : false
     zoneRedundant: zoneRedundant
-    numberOfWorkers: zoneRedundant? 3 : 1
+    numberOfWorkers: zoneRedundant? 3 : null
   }
 }
 

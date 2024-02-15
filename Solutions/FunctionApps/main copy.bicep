@@ -450,7 +450,7 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = if (hostingPlanTyp
   sku: hostingPlanSku
   tags: contains(tags, 'Microsoft.Web/serverfarms') ? tags['Microsoft.Web/serverfarms'] : {}
   properties: {
-    maximumElasticWorkerCount: functionAppKind == 'FunctionsPremium' ? 20 : null
+    maximumElasticWorkerCount: hostingPlanType == 'FunctionsPremium' ? 20 : null
     reserved: contains(functionAppKind, 'linux') ? true : false
     zoneRedundant: hostingPlanZoneRedundant
     numberOfWorkers: hostingPlanZoneRedundant? 3 : 1
