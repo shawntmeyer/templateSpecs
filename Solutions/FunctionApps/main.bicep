@@ -35,6 +35,9 @@ param runtimeVersion string = '.NET 8 Isolated'
 
 // Hosting Plan
 
+@description('Optional. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "hostingPlanId" parameter must be provided.')
+param deployHostPlan bool = true
+
 @description('''Optional. When you create a function app in Azure, you must choose a hosting plan for your app.
 There are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. 
 * Consumption: Scale automatically and only pay for compute resources when your functions are running.
@@ -205,7 +208,7 @@ var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.js
 var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
 var nameConvVnet = nameConvResTypeAtEnd ? 'purpose-${locations[location].abbreviation}-${resourceAbbreviations.virtualNetworks}' : '${resourceAbbreviations.virtualNetworks}-purpose-${locations[location].abbreviation}'
 
-var deployHostingPlan = hostingPlanType != 'Consumption' && empty(hostingPlanId) && !empty(hostingPlanResourceGroupName)
+var deployHostingPlan = hostingPlanType != 'Consumption' ? deployHostPlan : false
 
 var subnetOutbound = enableVnetIntegration ? [
   {
@@ -263,22 +266,25 @@ var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
   'privatelink.${websiteSuffixes[environment().name]}'
 ] : []
 
-var resourceGroupNamesAll = [
-  functionAppResourceGroupName
-  hostingPlanResourceGroupName
-  networkingResourceGroupName
+// ensure that no resource Group Names are blank for deployments
+var resourceGroupNameFunctionApp = functionAppResourceGroupName
+var resourceGroupNameHostingPlan = !empty(hostingPlanResourceGroupName) ? hostingPlanResourceGroupName : resourceGroupNameFunctionApp
+var resourceGroupNameNetworking = !empty(networkingResourceGroupName) ? networkingResourceGroupName : resourceGroupNameFunctionApp
+
+var resourceGroupNames = [
+  resourceGroupNameNetworking
+  resourceGroupNameHostingPlan
+  resourceGroupNameFunctionApp  
 ]
 
-var resourceGroupNamesNonEmpty = filter(resourceGroupNamesAll, rgName => !empty(rgName))
-
-resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNamesNonEmpty, resourceGroupNamesNonEmpty): {
+resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNames, resourceGroupNames): {
   name: resourceGroupName
   location: location
 }]
 
-module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint) && !empty(networkingResourceGroupName)) {
+module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
   name: 'networking-${timestamp}'
-  scope: !empty(networkingResourceGroupName) ? resourceGroup(networkingResourceGroupName) : resourceGroup(functionAppResourceGroupName)
+  scope: resourceGroup(networkingResourceGroupName)
   params: {
     location: location
     privateDnsZoneNames: union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName)
@@ -288,11 +294,14 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
     vnetAddressPrefix: vnetAddressPrefix
     tags: tags
   }
+  dependsOn: [
+    rgs
+  ]
 }
 
 module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   name: 'hostingPlan-${timestamp}'
-  scope: !empty(hostingPlanResourceGroupName) ? resourceGroup(hostingPlanResourceGroupName) : resourceGroup(functionAppResourceGroupName)
+  scope: resourceGroup(hostingPlanResourceGroupName)
   params: {
     functionAppKind: functionAppKind
     hostingPlanType: hostingPlanType
@@ -306,6 +315,9 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
     tags: tags
     zoneRedundant: hostingPlanZoneRedundant
   }
+  dependsOn: [
+    rgs
+  ]
 }
 
 module functionAppResources 'modules/functionAppResources.bicep' = {
@@ -319,7 +331,7 @@ module functionAppResources 'modules/functionAppResources.bicep' = {
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     functionAppKind: functionAppKind
     functionAppName: functionAppName
-    hostingPlanId: hostingPlanType != 'Consumption' ? ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' )) : ''
+    hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' ))
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion
     storageAccountName: storageAccountName   
@@ -335,4 +347,7 @@ module functionAppResources 'modules/functionAppResources.bicep' = {
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     tags: tags 
   }
+  dependsOn: [
+    rgs
+  ]
 }
