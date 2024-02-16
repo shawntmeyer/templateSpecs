@@ -148,7 +148,7 @@ param functionAppInboundSubnetAddressPrefix string = '10.0.2.0/24'
 
 // Private DNS Zones
 
-@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enableInboundPrivateEndpoint" = false and "deployNetworking" = false.')
+@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enableInboundPrivateEndpoint" = true and "deployNetworking" = false.')
 param functionAppPrivateDnsZoneId string = ''
 
 @description('Conditional. The resource Id of the blob storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
