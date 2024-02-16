@@ -1,3 +1,5 @@
+targetScope = 'resourceGroup'
+
 param location string
 param privateDnsZoneNames array
 param vnetName string
@@ -27,8 +29,9 @@ resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for sub
 
 // had to call module for VNetLinks to successfully create the links.
 module virtualNetworkLinks './networking/privateDnsZones.bicep' = {
-  name: 'virtualNetworkLinks-${timestamp}'
+  name: 'privateDns-${timestamp}'
   params: {
+    location: 'global'
     privateDnsZoneNames: privateDnsZoneNames
     tags: tags
     vnetId: vnet.id

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "13563484372356321721"
+      "templateHash": "9164570312328532169"
     }
   },
   "parameters": {
@@ -697,7 +697,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "15893526358518300818"
+              "templateHash": "10252740214621513511"
             }
           },
           "parameters": {
@@ -754,13 +754,16 @@
             {
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2022-09-01",
-              "name": "[format('virtualNetworkLinks-{0}', parameters('timestamp'))]",
+              "name": "[format('privateDns-{0}', parameters('timestamp'))]",
               "properties": {
                 "expressionEvaluationOptions": {
                   "scope": "inner"
                 },
                 "mode": "Incremental",
                 "parameters": {
+                  "location": {
+                    "value": "global"
+                  },
                   "privateDnsZoneNames": {
                     "value": "[parameters('privateDnsZoneNames')]"
                   },
@@ -778,10 +781,14 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.25.53.49325",
-                      "templateHash": "4138195761614949098"
+                      "templateHash": "6722155638427868221"
                     }
                   },
                   "parameters": {
+                    "location": {
+                      "type": "string",
+                      "defaultValue": "global"
+                    },
                     "privateDnsZoneNames": {
                       "type": "array"
                     },
@@ -801,7 +808,7 @@
                       "type": "Microsoft.Network/privateDnsZones",
                       "apiVersion": "2020-06-01",
                       "name": "[parameters('privateDnsZoneNames')[copyIndex()]]",
-                      "location": "global",
+                      "location": "[parameters('location')]",
                       "tags": "[if(contains(parameters('tags'), 'Microsoft.Network/privateDnsZones'), parameters('tags')['Microsoft.Network/privateDnsZones'], createObject())]"
                     },
                     {
@@ -812,7 +819,7 @@
                       "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
                       "apiVersion": "2020-06-01",
                       "name": "[format('{0}/{1}', parameters('privateDnsZoneNames')[copyIndex()], format('{0}-link', last(split(parameters('vnetId'), '/'))))]",
-                      "location": "global",
+                      "location": "[parameters('location')]",
                       "properties": {
                         "registrationEnabled": false,
                         "virtualNetwork": {
