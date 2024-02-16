@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "13432742575071504450"
+      "templateHash": "9267062983767310597"
     }
   },
   "parameters": {
@@ -657,7 +657,7 @@
       "location": "[parameters('location')]"
     },
     {
-      "condition": "[and(parameters('deployNetworking'), or(parameters('enableVnetIntegration'), parameters('enableInboundPrivateEndpoint')))]",
+      "condition": "[and(and(parameters('deployNetworking'), or(parameters('enableVnetIntegration'), parameters('enableInboundPrivateEndpoint'))), not(empty(parameters('networkingResourceGroupName'))))]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "[format('networking-{0}', parameters('timestamp'))]",
@@ -853,7 +853,7 @@
       }
     },
     {
-      "condition": "[and(not(equals(parameters('hostingPlanType'), 'Consumption')), empty(parameters('hostingPlanId')))]",
+      "condition": "[and(and(not(equals(parameters('hostingPlanType'), 'Consumption')), empty(parameters('hostingPlanId'))), not(empty(parameters('hostingPlanResourceGroupName'))))]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "[format('hostingPlan-{0}', parameters('timestamp'))]",

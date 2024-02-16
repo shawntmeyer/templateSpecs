@@ -274,7 +274,7 @@ resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGrou
   location: location
 }]
 
-module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
+module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint) && !empty(networkingResourceGroupName)) {
   name: 'networking-${timestamp}'
   scope: resourceGroup(networkingResourceGroupName)
   params: {
@@ -288,7 +288,7 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
   }
 }
 
-module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) ){
+module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) && !empty(hostingPlanResourceGroupName) ){
   name: 'hostingPlan-${timestamp}'
   scope: resourceGroup(hostingPlanResourceGroupName)
   params: {
