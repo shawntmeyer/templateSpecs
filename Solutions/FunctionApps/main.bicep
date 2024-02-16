@@ -1,8 +1,8 @@
 // Basics
 targetScope = 'subscription'
 
-@description('Optional. The location of all resources deployed by this template.')
-param location string = deployment().location
+@description('The location of all resources deployed by this template.')
+param location string
 
 @description('Optional. Reverse the order of the resource type and name in the generated resource name. Default is false.')
 param nameConvResTypeAtEnd bool = false
