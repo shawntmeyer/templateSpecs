@@ -113,7 +113,8 @@
                             "allowedMode": "Both",
                             "required": false,
                             "scope": {
-                                "subscriptionId": "[steps('basics').scope.subscription.subscriptionId]"
+                                "subscriptionId": "[steps('basics').scope.subscription.subscriptionId]",
+								"location": "[steps('basics').scope.location.name]"
                             },
                             "visible": true
                         },	
@@ -308,7 +309,8 @@
 									"required": false,
 									"defaultValue": "[steps('basics').functionAppResourceGroup.value.name]",
 									"scope": {
-										"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]"
+										"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]",
+										"location": "[steps('basics').scope.location.name]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},								
@@ -623,7 +625,8 @@
 									"label": "Networking Resource Group",
 									"defaultValue": "[steps('basics').hosting.hostingPlanResourceGroup.value.name]",
 									"scope": {
-										"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]"
+										"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]",
+										"location": "[steps('basics').scope.location.name]"
 									},
 									"visible": "[steps('networking').virtualNetwork.newVNet]"
 								},			
