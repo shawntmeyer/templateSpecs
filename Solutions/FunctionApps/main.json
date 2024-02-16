@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "3735674759214127551"
+      "templateHash": "3460871583206209108"
     }
   },
   "parameters": {
@@ -642,19 +642,27 @@
       "[parameters('functionAppResourceGroupName')]",
       "[parameters('hostingPlanResourceGroupName')]",
       "[parameters('networkingResourceGroupName')]"
-    ],
-    "resourceGroupNamesDistinct": "[union(variables('resourceGroupNamesAll'), variables('resourceGroupNamesAll'))]",
-    "resourceGroupNames": "[filter(variables('resourceGroupNamesDistinct'), lambda('name', not(empty(lambdaVariables('name')))))]"
+    ]
   },
   "resources": [
     {
-      "copy": {
-        "name": "resourceGroups",
-        "count": "[length(variables('resourceGroupNames'))]"
-      },
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2023-07-01",
-      "name": "[variables('resourceGroupNames')[copyIndex()]]",
+      "name": "[parameters('functionAppResourceGroupName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "condition": "[not(empty(parameters('hostingPlanResourceGroupName')))]",
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('hostingPlanResourceGroupName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "condition": "[not(empty(parameters('networkingResourceGroupName')))]",
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('networkingResourceGroupName')]",
       "location": "[parameters('location')]"
     },
     {
@@ -696,7 +704,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "1152144689282433982"
+              "templateHash": "14083225680605470254"
             }
           },
           "parameters": {
@@ -751,31 +759,81 @@
               ]
             },
             {
-              "copy": {
-                "name": "privateDnsZones",
-                "count": "[length(parameters('privateDnsZoneNames'))]"
-              },
-              "type": "Microsoft.Network/privateDnsZones",
-              "apiVersion": "2020-06-01",
-              "name": "[parameters('privateDnsZoneNames')[copyIndex()]]",
-              "location": "global",
-              "tags": "[if(contains(parameters('tags'), 'Microsoft.Network/privateDnsZones'), parameters('tags')['Microsoft.Network/privateDnsZones'], createObject())]"
-            },
-            {
-              "copy": {
-                "name": "virtualNetworkLinks",
-                "count": "[length(parameters('privateDnsZoneNames'))]"
-              },
-              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
-              "apiVersion": "2020-06-01",
-              "name": "[format('{0}/{1}', parameters('privateDnsZoneNames')[copyIndex()], format('{0}-{1}', split(parameters('privateDnsZoneNames')[copyIndex()], '.')[1], parameters('vnetName')))]",
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2022-09-01",
+              "name": "[format('privateDns-virtualNetworkLinks-{0}', parameters('timestamp'))]",
               "properties": {
-                "virtualNetwork": {
-                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "privateDnsZoneNames": {
+                    "value": "[parameters('privateDnsZoneNames')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  },
+                  "vnetId": {
+                    "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.25.53.49325",
+                      "templateHash": "10997674419496072488"
+                    }
+                  },
+                  "parameters": {
+                    "privateDnsZoneNames": {
+                      "type": "array"
+                    },
+                    "vnetId": {
+                      "type": "string"
+                    },
+                    "tags": {
+                      "type": "object"
+                    }
+                  },
+                  "resources": [
+                    {
+                      "copy": {
+                        "name": "privateDnsZones",
+                        "count": "[length(parameters('privateDnsZoneNames'))]"
+                      },
+                      "type": "Microsoft.Network/privateDnsZones",
+                      "apiVersion": "2020-06-01",
+                      "name": "[parameters('privateDnsZoneNames')[copyIndex()]]",
+                      "location": "global",
+                      "tags": "[if(contains(parameters('tags'), 'Microsoft.Network/privateDnsZones'), parameters('tags')['Microsoft.Network/privateDnsZones'], createObject())]"
+                    },
+                    {
+                      "copy": {
+                        "name": "virtualNetworkLinks",
+                        "count": "[length(parameters('privateDnsZoneNames'))]"
+                      },
+                      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+                      "apiVersion": "2018-09-01",
+                      "name": "[format('{0}/{1}', parameters('privateDnsZoneNames')[copyIndex()], last(split(parameters('vnetId'), '/')))]",
+                      "location": "global",
+                      "properties": {
+                        "registrationEnabled": false,
+                        "virtualNetwork": {
+                          "id": "[parameters('vnetId')]"
+                        }
+                      },
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneNames')[copyIndex()])]"
+                      ]
+                    }
+                  ]
                 }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneNames')[copyIndex()])]",
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
               ]
             }
@@ -803,7 +861,8 @@
         }
       },
       "dependsOn": [
-        "resourceGroups"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('functionAppResourceGroupName'))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('networkingResourceGroupName'))]"
       ]
     },
     {
@@ -926,7 +985,8 @@
         }
       },
       "dependsOn": [
-        "resourceGroups"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('functionAppResourceGroupName'))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('hostingPlanResourceGroupName'))]"
       ]
     },
     {
@@ -1379,7 +1439,7 @@
       "dependsOn": [
         "[subscriptionResourceId('Microsoft.Resources/deployments', format('hostingPlan-{0}', parameters('timestamp')))]",
         "[subscriptionResourceId('Microsoft.Resources/deployments', format('networking-{0}', parameters('timestamp')))]",
-        "resourceGroups"
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('functionAppResourceGroupName'))]"
       ]
     }
   ]

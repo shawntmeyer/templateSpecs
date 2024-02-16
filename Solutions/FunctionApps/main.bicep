@@ -267,18 +267,34 @@ var resourceGroupNamesAll = [
   networkingResourceGroupName
 ]
 
+/*
 var resourceGroupNamesDistinct = union(resourceGroupNamesAll, resourceGroupNamesAll)
 
-var resourceGroupNames = filter(resourceGroupNamesDistinct, (name) => !empty(name))
+//var resourceGroupNames = filter(resourceGroupNamesDistinct, (name) => !empty(name))
 
 resource resourceGroups 'Microsoft.Resources/resourceGroups@2023-07-01' = [for name in resourceGroupNames: {
   name: name
   location: location
 }]
+*/
 
+resource resourceGroupFunctionApp 'Microsoft.Resources/resourceGroups@2023-07-01' = {
+  name: functionAppResourceGroupName
+  location: location
+}
+
+resource resourceGroupHostingPlan 'Microsoft.Resources/resourceGroups@2023-07-01' = if(!empty(hostingPlanResourceGroupName)) {
+  name: hostingPlanResourceGroupName
+  location: location
+}
+
+resource resourceGroupNetworking 'Microsoft.Resources/resourceGroups@2023-07-01' = if(!empty(networkingResourceGroupName)) {
+  name: networkingResourceGroupName
+  location: location
+}
 module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
   name: 'networking-${timestamp}'
-  scope: !empty(networkingResourceGroupName) ? resourceGroup(networkingResourceGroupName) : (!empty(hostingPlanResourceGroupName) ? resourceGroup(hostingPlanResourceGroupName) : resourceGroup(functionAppResourceGroupName))
+  scope: !empty(networkingResourceGroupName) ? resourceGroupNetworking : resourceGroupFunctionApp
   params: {
     location: location
     privateDnsZoneNames: union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName)
@@ -288,14 +304,11 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
     vnetAddressPrefix: vnetAddressPrefix
     tags: tags
   }
-  dependsOn: [
-    resourceGroups
-  ]
 }
 
 module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) ){
   name: 'hostingPlan-${timestamp}'
-  scope: !empty(hostingPlanResourceGroupName) ? resourceGroup(hostingPlanResourceGroupName) : resourceGroup(functionAppResourceGroupName)
+  scope: !empty(hostingPlanResourceGroupName) ? resourceGroupHostingPlan : resourceGroupFunctionApp
   params: {
     functionAppKind: functionAppKind
     hostingPlanType: hostingPlanType
@@ -309,14 +322,11 @@ module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consump
     tags: tags
     zoneRedundant: hostingPlanZoneRedundant
   }
-  dependsOn: [
-    resourceGroups
-  ]
 }
 
 module functionAppResources 'modules/functionAppResources.bicep' = {
   name: 'functionAppResources-${timestamp}'
-  scope: resourceGroup(functionAppResourceGroupName)
+  scope: resourceGroupFunctionApp
   params: {
     location: location
     enableApplicationInsights: enableApplicationInsights
@@ -341,7 +351,4 @@ module functionAppResources 'modules/functionAppResources.bicep' = {
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     tags: tags 
   }
-  dependsOn: [
-    resourceGroups
-  ]
 }
