@@ -36,7 +36,7 @@ param runtimeVersion string = '.NET 8 Isolated'
 // Hosting Plan
 
 @description('Optional. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "hostingPlanId" parameter must be provided.')
-param deployHostPlan bool = true
+param deployHostPlan bool
 
 @description('''Optional. When you create a function app in Azure, you must choose a hosting plan for your app.
 There are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. 
