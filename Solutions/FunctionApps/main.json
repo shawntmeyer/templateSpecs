@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "12685798828029421767"
+      "templateHash": "4250116119886768552"
     }
   },
   "parameters": {
@@ -697,7 +697,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "12272646118315421613"
+              "templateHash": "16648170724115291915"
             }
           },
           "parameters": {
@@ -765,7 +765,7 @@
             {
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2022-09-01",
-              "name": "[format('privateDns-{0}', parameters('timestamp'))]",
+              "name": "[format('privateDns-virtualNetworkLinks-{0}', parameters('timestamp'))]",
               "properties": {
                 "expressionEvaluationOptions": {
                   "scope": "inner"
