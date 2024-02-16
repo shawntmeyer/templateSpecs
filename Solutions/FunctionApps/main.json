@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "9267062983767310597"
+      "templateHash": "9587499620532511940"
     }
   },
   "parameters": {
@@ -628,6 +628,7 @@
     "resourceAbbreviations": "[variables('$fxv#1')]",
     "nameConvPrivEndpoints": "[if(parameters('nameConvResTypeAtEnd'), format('resourceName-service-{0}-{1}', variables('locations')[parameters('location')].abbreviation, variables('resourceAbbreviations').privateEndpoints), format('{0}-resourceName-service-{1}', variables('resourceAbbreviations').privateEndpoints, variables('locations')[parameters('location')].abbreviation))]",
     "nameConvVnet": "[if(parameters('nameConvResTypeAtEnd'), format('purpose-{0}-{1}', variables('locations')[parameters('location')].abbreviation, variables('resourceAbbreviations').virtualNetworks), format('{0}-purpose-{1}', variables('resourceAbbreviations').virtualNetworks, variables('locations')[parameters('location')].abbreviation))]",
+    "deployHostingPlan": "[and(and(not(equals(parameters('hostingPlanType'), 'Consumption')), empty(parameters('hostingPlanId'))), not(empty(parameters('hostingPlanResourceGroupName'))))]",
     "subnetOutbound": "[if(parameters('enableVnetIntegration'), createArray(createObject('name', parameters('functionAppOutboundSubnetName'), 'properties', createObject('delegations', createArray(createObject('name', 'webapp', 'properties', createObject('serviceName', 'Microsoft.Web/serverFarms'))), 'addressPrefix', parameters('functionAppOutboundSubnetAddressPrefix')))), createArray())]",
     "subnetStoragePrivateEndpoints": "[if(parameters('enableStoragePrivateEndpoints'), createArray(createObject('name', parameters('storagePrivateEndpointSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'privateLinkServiceNetworkPolicies', 'Enabled', 'addressPrefix', parameters('storagePrivateEndpointSubnetAddressPrefix')))), createArray())]",
     "subnetInboundPrivateEndpoint": "[if(parameters('enableInboundPrivateEndpoint'), createArray(createObject('name', parameters('functionAppInboundSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'privateLinkServiceNetworkPolicies', 'Enabled', 'addressPrefix', parameters('functionAppInboundSubnetAddressPrefix')))), createArray())]",
@@ -853,7 +854,7 @@
       }
     },
     {
-      "condition": "[and(and(not(equals(parameters('hostingPlanType'), 'Consumption')), empty(parameters('hostingPlanId'))), not(empty(parameters('hostingPlanResourceGroupName'))))]",
+      "condition": "[variables('deployHostingPlan')]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "[format('hostingPlan-{0}', parameters('timestamp'))]",
@@ -1004,7 +1005,7 @@
           "functionAppName": {
             "value": "[parameters('functionAppName')]"
           },
-          "hostingPlanId": "[if(not(equals(parameters('hostingPlanType'), 'Consumption')), if(not(empty(parameters('hostingPlanId'))), createObject('value', parameters('hostingPlanId')), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('hostingPlanResourceGroupName')), 'Microsoft.Resources/deployments', format('hostingPlan-{0}', parameters('timestamp'))), '2022-09-01').outputs.hostingPlanId.value)), createObject('value', ''))]",
+          "hostingPlanId": "[if(not(equals(parameters('hostingPlanType'), 'Consumption')), if(not(empty(parameters('hostingPlanId'))), createObject('value', parameters('hostingPlanId')), if(variables('deployHostingPlan'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('hostingPlanResourceGroupName')), 'Microsoft.Resources/deployments', format('hostingPlan-{0}', parameters('timestamp'))), '2022-09-01').outputs.hostingPlanId.value), createObject('value', ''))), createObject('value', ''))]",
           "runtimeStack": {
             "value": "[parameters('runtimeStack')]"
           },
@@ -1039,7 +1040,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "18423716299315602806"
+              "templateHash": "6470530828474297969"
             }
           },
           "parameters": {
@@ -1322,7 +1323,7 @@
               "tags": "[if(contains(parameters('tags'), 'Microsoft.Web/sites'), parameters('tags')['Microsoft.Web/sites'], createObject())]",
               "properties": {
                 "publicNetworkAccess": "[if(parameters('enablePublicAccess'), 'Enabled', 'Disabled')]",
-                "serverFarmId": "[parameters('hostingPlanId')]",
+                "serverFarmId": "[if(not(empty(parameters('hostingPlanId'))), parameters('hostingPlanId'), null())]",
                 "siteConfig": {
                   "linuxFxVersion": "[if(contains(parameters('functionAppKind'), 'linux'), format('{0}|{1}', variables('linuxRuntimeStack'), variables('decimalRuntimeVersion')), null())]",
                   "netFrameworkVersion": "[if(and(not(contains(parameters('functionAppKind'), 'linux')), contains(parameters('runtimeStack'), 'dotnet')), format('v{0}', variables('decimalRuntimeVersion')), null())]"

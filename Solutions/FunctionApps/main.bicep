@@ -205,6 +205,8 @@ var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.js
 var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
 var nameConvVnet = nameConvResTypeAtEnd ? 'purpose-${locations[location].abbreviation}-${resourceAbbreviations.virtualNetworks}' : '${resourceAbbreviations.virtualNetworks}-purpose-${locations[location].abbreviation}'
 
+var deployHostingPlan = hostingPlanType != 'Consumption' && empty(hostingPlanId) && !empty(hostingPlanResourceGroupName)
+
 var subnetOutbound = enableVnetIntegration ? [
   {
     name: functionAppOutboundSubnetName
@@ -288,7 +290,7 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
   }
 }
 
-module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) && !empty(hostingPlanResourceGroupName) ){
+module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   name: 'hostingPlan-${timestamp}'
   scope: resourceGroup(hostingPlanResourceGroupName)
   params: {
@@ -317,7 +319,7 @@ module functionAppResources 'modules/functionAppResources.bicep' = {
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     functionAppKind: functionAppKind
     functionAppName: functionAppName
-    hostingPlanId: hostingPlanType != 'Consumption' ? ( !empty(hostingPlanId) ? hostingPlanId : hostingPlan.outputs.hostingPlanId ) : ''
+    hostingPlanId: hostingPlanType != 'Consumption' ? ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' )) : ''
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion
     storageAccountName: storageAccountName   

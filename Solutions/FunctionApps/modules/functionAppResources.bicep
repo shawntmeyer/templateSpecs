@@ -219,7 +219,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   tags: contains(tags, 'Microsoft.Web/sites') ? tags['Microsoft.Web/sites'] : {}
   properties: {
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
-    serverFarmId: hostingPlanId // !empty(hostingPlanId) ? hostingPlanId : ( hostingPlanType != 'Consumption' ? hostingPlan.id : null )
+    serverFarmId: !empty(hostingPlanId) ? hostingPlanId : null
     siteConfig: {
       linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
       netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${decimalRuntimeVersion}' : null
