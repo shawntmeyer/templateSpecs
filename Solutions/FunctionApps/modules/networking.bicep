@@ -22,11 +22,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
 resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for subnet in subnets: {
   name: subnet.name
   parent: vnet
-  properties: {
-    addressPrefixes: [
-      subnet.properties.addressPrefix
-    ]
-  }
+  properties: subnet.properties
 }]
 
 resource privateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for zoneName in privateDnsZoneNames: {
@@ -35,13 +31,18 @@ resource privateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for z
   tags: contains(tags, 'Microsoft.Network/privateDnsZones') ? tags['Microsoft.Network/privateDnsZones'] : {}
 }]
 
-module virtualNetworkLinks './virtualNetworkLinks.bicep' = {
+// had to call module for VNetLinks to successfully create the links.
+module virtualNetworkLinks './networking/virtualNetworkLinks.bicep' = {
   name: 'virtualNetworkLinks-${timestamp}'
   params: {
     vnetId: vnet.id
     privateDnsZoneNames: privateDnsZoneNames
   }
+  dependsOn: [
+    privateDnsZones
+  ]
 }
 
 output subnetIds array = [for subnet in subnets: '${vnet.id}/subnets/${subnet.name}']
 output privateDnsZoneIds array = [for zoneName in privateDnsZoneNames: resourceId('Microsoft.Network/privateDnsZones', zoneName)]
+output vnetId string = vnet.id

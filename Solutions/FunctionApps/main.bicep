@@ -205,17 +205,10 @@ var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.js
 var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
 var nameConvVnet = nameConvResTypeAtEnd ? 'purpose-${locations[location].abbreviation}-${resourceAbbreviations.virtualNetworks}' : '${resourceAbbreviations.virtualNetworks}-purpose-${locations[location].abbreviation}'
 
-var hostingPlanSku = {
-  name: split(hostingPlanPricing, '_')[1]
-  tier: split(hostingPlanPricing, '_')[0]
-}
-
 var subnetOutbound = enableVnetIntegration ? [
   {
     name: functionAppOutboundSubnetName
     properties: {
-      privateEndpointNetworkPolicies: 'Enabled'
-      privateLinkServiceNetworkPolicies: 'Enabled'
       delegations: [
         {
           name: 'webapp'
@@ -268,25 +261,24 @@ var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
   'privatelink.${websiteSuffixes[environment().name]}'
 ] : []
 
-resource functionAppResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-  name: functionAppResourceGroupName
-  location: location
-}
+var resourceGroupNamesAll = [
+  functionAppResourceGroupName
+  hostingPlanResourceGroupName
+  networkingResourceGroupName
+]
 
-resource hostingPlanResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) && hostingPlanResourceGroupName != functionAppResourceGroupName){
-  name: hostingPlanResourceGroupName
-  location: location
-}
+var resourceGroupNamesDistinct = union(resourceGroupNamesAll, resourceGroupNamesAll)
 
-resource networkingResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint) && networkingResourceGroupName != functionAppResourceGroupName && networkingResourceGroupName != hostingPlanResourceGroupName) {
-  name: networkingResourceGroupName
-  location: location
-}
+var resourceGroupNames = filter(resourceGroupNamesDistinct, (name) => !empty(name))
 
+resource resourceGroups 'Microsoft.Resources/resourceGroups@2023-07-01' = [for name in resourceGroupNames: {
+  name: name
+  location: location
+}]
 
 module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
   name: 'networking-${timestamp}'
-  scope: resourceGroup(networkingResourceGroupName)
+  scope: !empty(networkingResourceGroupName) ? resourceGroup(networkingResourceGroupName) : (!empty(hostingPlanResourceGroupName) ? resourceGroup(hostingPlanResourceGroupName) : resourceGroup(functionAppResourceGroupName))
   params: {
     location: location
     privateDnsZoneNames: union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName)
@@ -297,25 +289,28 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
     tags: tags
   }
   dependsOn: [
-    networkingResourceGroup
+    resourceGroups
   ]
 }
 
 module hostingPlan 'modules/hostingPlan.bicep' = if( hostingPlanType != 'Consumption' && empty(hostingPlanId) ){
   name: 'hostingPlan-${timestamp}'
-  scope: resourceGroup(hostingPlanResourceGroupName)
+  scope: !empty(hostingPlanResourceGroupName) ? resourceGroup(hostingPlanResourceGroupName) : resourceGroup(functionAppResourceGroupName)
   params: {
     functionAppKind: functionAppKind
     hostingPlanType: hostingPlanType
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     name: hostingPlanName
-    sku: hostingPlanSku
+    sku: {
+      name: split(hostingPlanPricing, '_')[1]
+      tier: split(hostingPlanPricing, '_')[0]
+    }
     tags: tags
     zoneRedundant: hostingPlanZoneRedundant
   }
   dependsOn: [
-    hostingPlanResourceGroup
+    resourceGroups
   ]
 }
 
@@ -347,6 +342,6 @@ module functionAppResources 'modules/functionAppResources.bicep' = {
     tags: tags 
   }
   dependsOn: [
-    functionAppResourceGroup
+    resourceGroups
   ]
 }

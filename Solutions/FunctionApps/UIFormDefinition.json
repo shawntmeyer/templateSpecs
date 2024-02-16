@@ -54,7 +54,7 @@
 							"visible": true
 						},
                         {
-                            "name": "resourceScope",
+                            "name": "scope",
                             "type": "Microsoft.Common.ResourceScope",
 							"instanceDetailsLabel": "Function App Details",
                             "location": {
@@ -68,7 +68,7 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "POST",
-								"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Web/checkNameAvailability?api-version=2022-03-01')]",
+								"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Web/checkNameAvailability?api-version=2022-03-01')]",
 								"body": {
 									"name": "[steps('basics').functionAppName]",
 									"type": "Microsoft.Web/sites"
@@ -80,7 +80,7 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').functionAppName,'?api-version=2022-03-01')]",
+								"path": "[concat(steps('basics').scope.subscription.id,'/resourceGroups/',steps('basics').scope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').functionAppName,'?api-version=2022-03-01')]",
 								"body": {}
 							}
 						},
@@ -88,7 +88,7 @@
 							"name": "functionAppName",
 							"type": "Microsoft.Common.TextBox",
 							"label": "Function App Name",
-							"defaultValue": "[if(steps('basics').nameConvResTypeAtEnd, '-func', 'func-')]",
+							"placeholder": "func-<name>-<env>-<region>",
 							"toolTip": "Required. The name of the function App. The name must be globally unique for the namespace 'azurewebsites.net'.",
 							"constraints": {
 								"required": true,
@@ -98,7 +98,7 @@
 										"message": "[steps('basics').name_checkNameAvailability.message]"
 									},
 									{
-										"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_rePUT.id,concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').functionAppName)),not(equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists')))]",
+										"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_rePUT.id,concat(steps('basics').scope.subscription.id,'/resourceGroups/',steps('basics').scope.resourceGroup.name,'/providers/Microsoft.Web/sites/',steps('basics').functionAppName)),not(equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists')))]",
 										"message": "[steps('basics').name_checkNameAvailability.message]"
 									}
 								]
@@ -109,10 +109,11 @@
                             "type":"Microsoft.Common.ResourceGroupSelector",
                             "name": "functionAppResourceGroup",
 							"label": "Function App Resource Group",
+							"placeholder": "rg-<functionAppName>",
                             "allowedMode": "Both",
                             "required": false,
                             "scope": {
-                                "subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
+                                "subscriptionId": "[steps('basics').scope.subscription.subscriptionId]"
                             },
                             "visible": true
                         },	
@@ -121,7 +122,7 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat('/providers/', 'Microsoft.Web/locations/', steps('basics').resourceScope.location.name, '/functionAppStacks?api-version=2022-03-01')]"
+								"path": "[concat('/providers/', 'Microsoft.Web/locations/', steps('basics').scope.location.name, '/functionAppStacks?api-version=2022-03-01')]"
 							}
 						},
                         {
@@ -253,7 +254,7 @@
 									"type": "Microsoft.Solutions.ArmApiControl",
 									"request": {
 										"method": "GET",
-										"path": "[concat(steps('basics').resourceScope.subscription.id, '/providers/Microsoft.Web/serverfarms?api-version=2022-03-01')]"
+										"path": "[concat(steps('basics').scope.subscription.id, '/providers/Microsoft.Web/serverfarms?api-version=2022-03-01')]"
 									}
 								},
 								{
@@ -273,7 +274,7 @@
 									"toolTip": "Select the App Service Plan that will host the Function App.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').resourceScope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},
@@ -290,8 +291,7 @@
 									"name": "hostingPlanName",
 									"type": "Microsoft.Common.TextBox",
 									"label": "App Service Plan name",
-									"subLabel": "",
-									"defaultValue": "[if(steps('basics').nameConvResTypeAtEnd, '-asp', 'asp-')]",
+									"placeholder": "asp-<win/lnx>-<sku>-<env>-<region>",
 									"toolTip": "The name of the app service plan used by the function App.",
 									"constraints": {
 										"required": true,
@@ -304,10 +304,11 @@
 									"type":"Microsoft.Common.ResourceGroupSelector",
 									"name": "hostingPlanResourceGroup",
 									"allowedMode": "Both",
+									"placeholder": "rg-<hostingPlanName> or rg-hosting-plans-<env>-<region>",
 									"required": false,
 									"defaultValue": "[steps('basics').functionAppResourceGroup.value.name]",
 									"scope": {
-										"subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
+										"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},								
@@ -329,13 +330,13 @@
 									"type": "Microsoft.Solutions.ArmApiControl",
 									"request": {
 										"method": "GET",
-										"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Web/geoRegions?api-version=2022-03-01')]"
+										"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Web/geoRegions?api-version=2022-03-01')]"
 									}
 								},
 								{
 									"name": "zoneRedundancyTextBlock",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').resourceScope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
 									"options": {
 										"text": "An App Service Plan can be deployed as a zone redundant service in the regions that support it. This is a deployment time only decision. You can't make an App Service Plan zone redundant after it has been deployed.",
 										"link": {
@@ -362,7 +363,7 @@
 											}
 										]
 									},
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').resourceScope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
 								}	
 							],
 							"visible": true
@@ -378,7 +379,7 @@
                             "type": "Microsoft.Solutions.ArmApiControl",
                             "request": {
                                 "method": "GET",
-                                "path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
+                                "path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
                             }
                         },
 						{
@@ -386,7 +387,7 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "POST",
-								"path": "[concat(steps('basics').resourceScope.subscription.id,'/providers/Microsoft.Storage/checkNameAvailability?api-version=2016-01-01')]",
+								"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/checkNameAvailability?api-version=2016-01-01')]",
 								"body": {
 									"name": "[steps('storage').name]",
 									"type": "Microsoft.Storage/storageAccounts"
@@ -398,7 +399,7 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('storage').name,'?api-version=2016-01-01')]",
+								"path": "[concat(steps('basics').scope.subscription.id,'/resourceGroups/',steps('basics').scope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('storage').name,'?api-version=2016-01-01')]",
 								"body": {}
 							}
 						},
@@ -428,7 +429,7 @@
 										"message": "[steps('storage').name_checkNameAvailability.message]"
 									},
 									{
-										"isValid": "[or(steps('storage').name_checkNameAvailability.nameAvailable,equals(steps('storage').name_rePUT.id,concat(steps('basics').resourceScope.subscription.id,'/resourceGroups/',steps('basics').resourceScope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('storage').name)),not(equals(steps('storage').name_checkNameAvailability.reason,'AlreadyExists')))]",
+										"isValid": "[or(steps('storage').name_checkNameAvailability.nameAvailable,equals(steps('storage').name_rePUT.id,concat(steps('basics').scope.subscription.id,'/resourceGroups/',steps('basics').scope.resourceGroup.name,'/providers/Microsoft.Storage/storageAccounts/',steps('storage').name)),not(equals(steps('storage').name_checkNameAvailability.reason,'AlreadyExists')))]",
 										"message": "[steps('storage').name_checkNameAvailability.message]"
 									}
 								]
@@ -514,7 +515,7 @@
                             }
                         },
 						{
-							"name": "infoBox1",
+							"name": "warningNetworkIntegrationNotAvailable",
 							"type": "Microsoft.Common.InfoBox",
 							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
 							"options": {
@@ -571,7 +572,7 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Virtual Networks Subscription",
 									"placeholder": "",
-									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
+									"defaultValue": "[steps('basics').scope.subscription.displayName]",
 									"toolTip": "",
 									"constraints": {
 										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
@@ -587,7 +588,7 @@
 									"toolTip": "Select the virtual network to which the function app will be integrated. All subnet selections below will be limited to this Virtual Network.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('networking').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').resourceScope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').scope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[equals(steps('networking').virtualNetwork.newVNet, false)]"
 								},
@@ -617,11 +618,12 @@
 									"type":"Microsoft.Common.ResourceGroupSelector",
 									"name": "networkingResourceGroup",
 									"allowedMode": "Both",
+									"placeholder": "<hosting plan rg name> or rg-app-service-plans-networking-<env>-<region>",
 									"required": false,
 									"label": "Networking Resource Group",
-									"defaultValue": "[steps('basics').functionAppResourceGroup.value.name]",
+									"defaultValue": "[steps('basics').hosting.hostingPlanResourceGroup.value.name]",
 									"scope": {
-										"subscriptionId": "[steps('basics').resourceScope.subscription.subscriptionId]"
+										"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]"
 									},
 									"visible": "[steps('networking').virtualNetwork.newVNet]"
 								},			
@@ -739,7 +741,7 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Private DNS Zones Subscription",
 									"placeholder": "",
-									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
+									"defaultValue": "[steps('basics').scope.subscription.displayName]",
 									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
 									"constraints": {
 										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
@@ -793,7 +795,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Outbound subnet name",
 									"placeholder": "",
-									"defaultValue": "[concat('snet-', steps('basics').functionAppName, '-outbound')]",
+									"defaultValue": "[concat('snet-', steps('basics').hosting.hostingPlanName, '-outbound')]",
 									"toolTip": "Provide the name of the outbound subnet",
 									"constraints": {
 										"required": true,
@@ -961,7 +963,7 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Private DNS Zones Subscription",
 									"placeholder": "",
-									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
+									"defaultValue": "[steps('basics').scope.subscription.displayName]",
 									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
 									"constraints": {
 										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
@@ -1136,10 +1138,10 @@
         },
         "outputs": {
             "kind": "Subscription",
-            "location": "[steps('basics').resourceScope.location.name]",
-            "subscriptionId": "[steps('basics').resourceScope.subscription.id]",
+            "location": "[steps('basics').scope.location.name]",
+            "subscriptionId": "[steps('basics').scope.subscription.id]",
             "parameters": {
-                "location": "[steps('basics').resourceScope.location.name]",
+                "location": "[steps('basics').scope.location.name]",
 				"nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]",
                 "functionAppName": "[steps('basics').functionAppName]",
 				"functionAppResourceGroupName": "[steps('basics').functionAppResourceGroup.value.name]",
