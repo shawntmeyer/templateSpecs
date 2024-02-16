@@ -35,7 +35,7 @@ resource privateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for (
 
 // had to call module for VNetLinks to successfully create the links.
 module virtualNetworkLinks './networking/virtualNetworkLinks.bicep' = {
-  name: 'privateDns-${timestamp}'
+  name: 'privateDns-virtualNetworkLinks-${timestamp}'
   params: {
     privateDnsZoneNames: privateDnsZoneNames
     vnetId: vnet.id
