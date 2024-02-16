@@ -267,7 +267,9 @@ var resourceGroupNamesAll = [
   networkingResourceGroupName
 ]
 
-resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNamesAll, resourceGroupNamesAll): {
+var resourceGroupNamesNonEmpty = filter(resourceGroupNamesAll, rgName => !empty(rgName))
+
+resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNamesNonEmpty, resourceGroupNamesNonEmpty): {
   name: resourceGroupName
   location: location
 }]

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "16126092822964581535"
+      "templateHash": "13432742575071504450"
     }
   },
   "parameters": {
@@ -642,17 +642,18 @@
       "[parameters('functionAppResourceGroupName')]",
       "[parameters('hostingPlanResourceGroupName')]",
       "[parameters('networkingResourceGroupName')]"
-    ]
+    ],
+    "resourceGroupNamesNonEmpty": "[filter(variables('resourceGroupNamesAll'), lambda('rgName', not(empty(lambdaVariables('rgName')))))]"
   },
   "resources": [
     {
       "copy": {
         "name": "rgs",
-        "count": "[length(union(variables('resourceGroupNamesAll'), variables('resourceGroupNamesAll')))]"
+        "count": "[length(union(variables('resourceGroupNamesNonEmpty'), variables('resourceGroupNamesNonEmpty')))]"
       },
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2023-07-01",
-      "name": "[union(variables('resourceGroupNamesAll'), variables('resourceGroupNamesAll'))[copyIndex()]]",
+      "name": "[union(variables('resourceGroupNamesNonEmpty'), variables('resourceGroupNamesNonEmpty'))[copyIndex()]]",
       "location": "[parameters('location')]"
     },
     {
