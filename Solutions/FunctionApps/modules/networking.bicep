@@ -25,22 +25,14 @@ resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for sub
   properties: subnet.properties
 }]
 
-resource privateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for zoneName in privateDnsZoneNames: {
-  name: zoneName
-  location: 'global'
-  tags: contains(tags, 'Microsoft.Network/privateDnsZones') ? tags['Microsoft.Network/privateDnsZones'] : {}
-}]
-
 // had to call module for VNetLinks to successfully create the links.
-module virtualNetworkLinks './networking/virtualNetworkLinks.bicep' = {
+module virtualNetworkLinks './networking/privateDnsZones.bicep' = {
   name: 'virtualNetworkLinks-${timestamp}'
   params: {
-    vnetId: vnet.id
     privateDnsZoneNames: privateDnsZoneNames
+    tags: tags
+    vnetId: vnet.id
   }
-  dependsOn: [
-    privateDnsZones
-  ]
 }
 
 output subnetIds array = [for subnet in subnets: '${vnet.id}/subnets/${subnet.name}']
