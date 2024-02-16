@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "9164570312328532169"
+      "templateHash": "12685798828029421767"
     }
   },
   "parameters": {
@@ -697,7 +697,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "10252740214621513511"
+              "templateHash": "12272646118315421613"
             }
           },
           "parameters": {
@@ -752,6 +752,17 @@
               ]
             },
             {
+              "copy": {
+                "name": "privateDnsZones",
+                "count": "[length(parameters('privateDnsZoneNames'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('privateDnsZoneNames')[copyIndex()]]",
+              "location": "global",
+              "tags": "[if(contains(parameters('tags'), 'Microsoft.Network/privateDnsZones'), parameters('tags')['Microsoft.Network/privateDnsZones'], createObject())]"
+            },
+            {
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2022-09-01",
               "name": "[format('privateDns-{0}', parameters('timestamp'))]",
@@ -761,14 +772,8 @@
                 },
                 "mode": "Incremental",
                 "parameters": {
-                  "location": {
-                    "value": "global"
-                  },
                   "privateDnsZoneNames": {
                     "value": "[parameters('privateDnsZoneNames')]"
-                  },
-                  "tags": {
-                    "value": "[parameters('tags')]"
                   },
                   "vnetId": {
                     "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
@@ -781,60 +786,39 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.25.53.49325",
-                      "templateHash": "6722155638427868221"
+                      "templateHash": "1729400465256099229"
                     }
                   },
                   "parameters": {
-                    "location": {
-                      "type": "string",
-                      "defaultValue": "global"
-                    },
                     "privateDnsZoneNames": {
                       "type": "array"
                     },
                     "vnetId": {
                       "type": "string"
-                    },
-                    "tags": {
-                      "type": "object"
                     }
                   },
                   "resources": [
                     {
                       "copy": {
-                        "name": "privateDnsZones",
-                        "count": "[length(parameters('privateDnsZoneNames'))]"
-                      },
-                      "type": "Microsoft.Network/privateDnsZones",
-                      "apiVersion": "2020-06-01",
-                      "name": "[parameters('privateDnsZoneNames')[copyIndex()]]",
-                      "location": "[parameters('location')]",
-                      "tags": "[if(contains(parameters('tags'), 'Microsoft.Network/privateDnsZones'), parameters('tags')['Microsoft.Network/privateDnsZones'], createObject())]"
-                    },
-                    {
-                      "copy": {
-                        "name": "vnetLink",
+                        "name": "virtualNetworkLinks",
                         "count": "[length(parameters('privateDnsZoneNames'))]"
                       },
                       "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
-                      "apiVersion": "2020-06-01",
-                      "name": "[format('{0}/{1}', parameters('privateDnsZoneNames')[copyIndex()], format('{0}-link', last(split(parameters('vnetId'), '/'))))]",
-                      "location": "[parameters('location')]",
+                      "apiVersion": "2018-09-01",
+                      "name": "[format('{0}/{1}', parameters('privateDnsZoneNames')[copyIndex()], last(split(parameters('vnetId'), '/')))]",
+                      "location": "global",
                       "properties": {
                         "registrationEnabled": false,
                         "virtualNetwork": {
                           "id": "[parameters('vnetId')]"
                         }
-                      },
-                      "dependsOn": [
-                        "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneNames')[copyIndex()])]",
-                        "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneNames')[copyIndex()])]"
-                      ]
+                      }
                     }
                   ]
                 }
               },
               "dependsOn": [
+                "privateDnsZones",
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
               ]
             }
