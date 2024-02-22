@@ -9,6 +9,16 @@
                     "name": "basics",
                     "label": "Basics",
                     "elements": [
+                        {
+							"name": "scope",
+							"type": "Microsoft.Common.ResourceScope",
+							"instanceDetailsLabel": "Function App Details",
+							"location": {
+								"resourceTypes": [
+									"microsoft.web/sites"
+								]
+							}
+						},
 						{
 							"name": "nameConvResTypeAtEnd",
 							"type": "Microsoft.Common.OptionsGroup",
