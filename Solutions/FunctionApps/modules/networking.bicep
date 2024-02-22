@@ -34,6 +34,9 @@ module privateDnsZones 'networking/privateDnsZones.bicep' = {
     tags: tags
     vnetId: vnet.id
   }
+  dependsOn: [
+    snets
+  ]
 }
 
 output subnetIds array = [for subnet in subnets: '${vnet.id}/subnets/${subnet.name}']
