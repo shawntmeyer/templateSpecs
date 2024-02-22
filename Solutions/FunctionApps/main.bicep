@@ -205,8 +205,8 @@ param timestamp string = utcNow('yyyyMMddhhmmss')
 
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
+
 var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
-var nameConvVnet = nameConvResTypeAtEnd ? 'purpose-${locations[location].abbreviation}-${resourceAbbreviations.virtualNetworks}' : '${resourceAbbreviations.virtualNetworks}-purpose-${locations[location].abbreviation}'
 
 var subnetOutbound = enableVnetIntegration ? [
   {
@@ -280,13 +280,13 @@ resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGrou
 
 module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
   name: 'networking-${timestamp}'
-  scope: resourceGroup(networkingResourceGroupName)
+  scope: resourceGroup(resourceGroupNameNetworking)
   params: {
     location: location
     privateDnsZoneNames: union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName)
     subnets: union(subnetOutbound, subnetStoragePrivateEndpoints, subnetInboundPrivateEndpoint)
     timestamp: timestamp
-    vnetName: !empty(vnetName) ? vnetName : replace(nameConvVnet, 'purpose', hostingPlanName)
+    vnetName: vnetName
     vnetAddressPrefix: vnetAddressPrefix
     tags: tags
   }
@@ -297,7 +297,7 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
 
 module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   name: 'hostingPlan-${timestamp}'
-  scope: resourceGroup(hostingPlanResourceGroupName)
+  scope: resourceGroup(resourceGroupNameHostingPlan)
   params: {
     functionAppKind: functionAppKind
     hostingPlanType: hostingPlanType
