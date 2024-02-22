@@ -327,19 +327,19 @@ module functionAppResources 'modules/functionAppResources.bicep' = {
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     functionAppKind: functionAppKind
     functionAppName: functionAppName
-    hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? resourceId(subscription().subscriptionId, hostingPlanResourceGroupName, 'Microsoft.Web/serverFarms', hostingPlanName) : '' ))
+    hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' ))
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion
     storageAccountName: storageAccountName   
     nameConvPrivEndpoints: nameConvPrivEndpoints
-    functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/virtualNetworks/subnets', vnetName, functionAppOutboundSubnetName) ) : ''
-    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/virtualNetworks/subnets', vnetName, storagePrivateEndpointSubnetName) ) : ''
-    functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/virtualNetworks/subnets', vnetName, functionAppInboundSubnetName) ) : '' 
-    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/privateDnsZones', 'privatelink.blob.${environment().suffixes.storage}') ) : ''
-    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/privateDnsZones', 'privatelink.file.${environment().suffixes.storage}') ) : ''
-    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/privateDnsZones', 'privatelink.queue.${environment().suffixes.storage}') ) : ''
-    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/privateDnsZones', 'privatelink.table.${environment().suffixes.storage}') ) : ''
-    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : resourceId(subscription().subscriptionId, resourceGroupNameNetworking, 'Microsoft.Network/privateDnsZones', 'privatelink.${websiteSuffixes[environment().name]}') ) : ''
+    functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
+    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
+    functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : '' 
+    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
+    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
+    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
+    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
+    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     tags: tags 
   }
