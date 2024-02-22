@@ -44,9 +44,9 @@
             ]
         },
         "outputs": {
-            "kind": "Subscription",
+            "kind": "ResourceGroup",
+			"resourceGroupId": "[steps('basics').scope.resourceGroup.Id]",
             "location": "[steps('basics').scope.location.name]",
-            "subscriptionId": "[steps('basics').scope.subscription.id]",
             "parameters": {
                 "nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]"
             }
