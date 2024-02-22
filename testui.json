@@ -10,76 +10,25 @@
                     "label": "Basics",
                     "elements": [
 						{
-                            "name": "scope",
-                            "type": "Microsoft.Common.ResourceScope",
-							"instanceDetailsLabel": "Function App Details",
-                            "location": {
-                                "resourceTypes": [
-                                    "microsoft.web/sites"
-                                ]
-                            }
-                        },
-                        {
-                            "name": "serverFarmsApi",
-                            "type": "Microsoft.Solutions.ArmApiControl",
-                            "request": {
-                                "method": "GET",
-                                "path": "[concat(steps('basics').scope.subscription.id, '/providers/Microsoft.Web/serverfarms?api-version=2022-03-01')]"
-                            }
-                        },
-                        {
-							"name": "functionAppKind",
+							"name": "nameConvResTypeAtEnd",
 							"type": "Microsoft.Common.OptionsGroup",
-							"label": "Operating System",
-							"defaultValue": "[if(equals(steps('basics').runtimeStackName, 'python'),'Linux', 'Windows')]",
+							"label": "Reverse the CAF naming convention.",
+							"defaultValue": "No",
+							"toolTip": "",
 							"constraints": {
-								"allowedValues": "[if(equals(steps('basics').runtimeStackName, 'python'), parse('[{\"label\":\"Linux\",\"value\":\"functionapp,linux\"}]'), parse('[{\"label\":\"Windows\",\"value\":\"functionapp\"},{\"label\":\"Linux\",\"value\":\"functionapp,linux\"}]'))]"
-									
+								"allowedValues": [
+									{
+										"label": "Yes",
+										"value": true
+									},
+									{
+										"label": "No",
+										"value": false
+									}
+								]
 							},
 							"visible": true
-						},
-                        {
-                            "name": "hostingPlanType",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Hosting options and plans",
-                            "multiLine": true,
-                            "defaultValue": "Functions Premium",
-                            "toolTip": "Select 'Consumption' for serverless and event-driven scaling for the lowest minimum cost, 'Premium' for enterprise-level, serverless applications with event-based scaling and network isolation, or 'App Service Plan' for reusing compute from existing app service plan.",
-                            "constraints": {
-                                "required": false,
-                                "allowedValues": [
-                                    {
-                                        "label": "Consumption (Serverless)",
-                                        "description": "Optimized for serverless and event-driven workloads.",
-                                        "value": "Consumption"
-                                    },
-                                    {
-                                        "label": "Functions Premium",
-                                        "description": "Event based scaling and network isolation, ideal for workloads running continuously.",
-                                        "value": "FunctionsPremium"
-                                    },
-                                    {
-                                        "label": "App service plan",
-                                        "description": "Fully isolated and dedicated environment suitable for workloads that need large SKUs or need to co-locate Web Apps and Functions.",
-                                        "value": "AppServicePlan"
-                                    }
-                                ]
-                            },
-                            "infoMessages": [],
-                            "visible": true
-                        },
-                        {
-                            "name": "existingHostingPlanId",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Existing App Service Plan",
-                            "multiLine": true,
-                            "toolTip": "Select the App Service Plan that will host the Function App.",
-                            "constraints": {
-                                "required": true,
-                                "allowedValues": "[map(filter(steps('basics').serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
-                            },
-                            "visible": true
-                        }
+						}
                     ]
                 }
             ]
@@ -89,7 +38,7 @@
             "location": "[steps('basics').scope.location.name]",
             "subscriptionId": "[steps('basics').scope.subscription.id]",
             "parameters": {
-                "allowedValues": "[map(filter(steps('basics').serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
+                "nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]"
             }
         }
     }

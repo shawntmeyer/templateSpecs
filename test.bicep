@@ -1,1 +1,1 @@
-param allowedValues array
+param nameConvResTypeAtEnd bool
