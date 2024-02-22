@@ -1,14 +1,14 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2021-09-09/uiFormDefinition.schema.json",
-    "view": {
-        "kind": "Form",
-        "properties": {
-            "title": "Function App",
-            "steps": [
-                {
-                    "name": "basics",
-                    "label": "Basics",
-                    "elements": [
+	"$schema": "https://schema.management.azure.com/schemas/2021-09-09/uiFormDefinition.schema.json",
+	"view": {
+		"kind": "Form",
+		"properties": {
+			"title": "Function App",
+			"steps": [
+				{
+					"name": "basics",
+					"label": "Basics",
+					"elements": [
 						{
 							"name": "textBlock1",
 							"type": "Microsoft.Common.TextBlock",
@@ -53,16 +53,16 @@
 							},
 							"visible": true
 						},
-                        {
-                            "name": "scope",
-                            "type": "Microsoft.Common.ResourceScope",
+						{
+							"name": "scope",
+							"type": "Microsoft.Common.ResourceScope",
 							"instanceDetailsLabel": "Function App Details",
-                            "location": {
-                                "resourceTypes": [
-                                    "microsoft.web/sites"
-                                ]
-                            }
-                        },
+							"location": {
+								"resourceTypes": [
+									"microsoft.web/sites"
+								]
+							}
+						},
 						{
 							"name": "name_checkNameAvailability",
 							"type": "Microsoft.Solutions.ArmApiControl",
@@ -92,7 +92,7 @@
 							"toolTip": "Required. The name of the function App. The name must be globally unique for the namespace 'azurewebsites.net'.",
 							"constraints": {
 								"required": true,
-								"validations":[
+								"validations": [
 									{
 										"isValid": "[or(steps('basics').name_checkNameAvailability.nameAvailable,equals(steps('basics').name_checkNameAvailability.reason,'AlreadyExists'))]",
 										"message": "[steps('basics').name_checkNameAvailability.message]"
@@ -106,18 +106,18 @@
 							"visible": true
 						},
 						{
-                            "type":"Microsoft.Common.ResourceGroupSelector",
-                            "name": "functionAppResourceGroup",
+							"type": "Microsoft.Common.ResourceGroupSelector",
+							"name": "functionAppResourceGroup",
 							"label": "Function App Resource Group",
 							"placeholder": "rg-<functionAppName>",
-                            "allowedMode": "Both",
-                            "required": false,
-                            "scope": {
-                                "subscriptionId": "[steps('basics').scope.subscription.subscriptionId]",
+							"allowedMode": "Both",
+							"required": false,
+							"scope": {
+								"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]",
 								"location": "[steps('basics').scope.location.name]"
-                            },
-                            "visible": true
-                        },	
+							},
+							"visible": true
+						},
 						{
 							"name": "functionAppStacksApi",
 							"type": "Microsoft.Solutions.ArmApiControl",
@@ -126,43 +126,43 @@
 								"path": "[concat('/providers/', 'Microsoft.Web/locations/', steps('basics').scope.location.name, '/functionAppStacks?api-version=2022-03-01')]"
 							}
 						},
-                        {
-                            "name": "runtimeStackName",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Runtime Stack",
-                            "multiLine": true,
-                            "toolTip": "The runtime stack used by the function App.",
-                            "constraints": {
-                                "required": true,
-                                "allowedValues": "[map(steps('basics').functionAppStacksApi.value, (item) => parse(concat('{\"label\":\"', item.properties.displayText, '\",\"description\":\"Preferred OS: ', item.properties.preferredOs, '\",\"value\":\"', item.name, '\"}')))]"
-                            },
-                            "visible": true
-                        },
-                        {
-                            "name": "runtimeStackMajorVersion",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Runtime stack Major Version",
-                            "multiLine": true,
-                            "toolTip": "The runtime stack used by the function App.",
-                            "constraints": {
-                                "required": false,
-                                "allowedValues": "[map(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.displayText, '\"}')))]"
-                            },
-                            "visible": true
-                        },
-                        {
-                            "name": "runtimeStackMinorVersion",
-                            "type": "Microsoft.Common.DropDown",
-                            "label": "Runtime Stack Minor Version",
-                            "defaultValue": "[steps('basics').runtimeStackMajorVersion]",
-                            "multiLine": true,
-                            "toolTip": "The runtime stack used by the function App.",
-                            "constraints": {
-                                "required": false,
-                                "allowedValues": "[map(first(map(filter(first(map(filter(steps('basics').functionAppStacksApi.value, (stack) => equals(stack.name, steps('basics').runtimeStackName)), (stack) => stack.properties.majorVersions)), (majVer) => equals(majVer.displayText, steps('basics').runtimeStackMajorVersion)), (majVer) => majVer.minorVersions)), (minVer) => parse(concat('{\"label\":\"', minVer.displayText, '\",\"value\":\"', minVer.value, '\"}')))]"
-                            },
-                            "visible": true
-                        },
+						{
+							"name": "runtimeStackName",
+							"type": "Microsoft.Common.DropDown",
+							"label": "Runtime Stack",
+							"multiLine": true,
+							"toolTip": "The runtime stack used by the function App.",
+							"constraints": {
+								"required": true,
+								"allowedValues": "[map(steps('basics').functionAppStacksApi.value, (item) => parse(concat('{\"label\":\"', item.properties.displayText, '\",\"description\":\"Preferred OS: ', item.properties.preferredOs, '\",\"value\":\"', item.name, '\"}')))]"
+							},
+							"visible": true
+						},
+						{
+							"name": "runtimeStackMajorVersion",
+							"type": "Microsoft.Common.DropDown",
+							"label": "Runtime stack Major Version",
+							"multiLine": true,
+							"toolTip": "The runtime stack used by the function App.",
+							"constraints": {
+								"required": false,
+								"allowedValues": "[map(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.displayText, '\"}')))]"
+							},
+							"visible": true
+						},
+						{
+							"name": "runtimeStackMinorVersion",
+							"type": "Microsoft.Common.DropDown",
+							"label": "Runtime Stack Minor Version",
+							"defaultValue": "[steps('basics').runtimeStackMajorVersion]",
+							"multiLine": true,
+							"toolTip": "The runtime stack used by the function App.",
+							"constraints": {
+								"required": false,
+								"allowedValues": "[map(first(map(filter(first(map(filter(steps('basics').functionAppStacksApi.value, (stack) => equals(stack.name, steps('basics').runtimeStackName)), (stack) => stack.properties.majorVersions)), (majVer) => equals(majVer.displayText, steps('basics').runtimeStackMajorVersion)), (majVer) => majVer.minorVersions)), (minVer) => parse(concat('{\"label\":\"', minVer.displayText, '\",\"value\":\"', minVer.value, '\"}')))]"
+							},
+							"visible": true
+						},
 						{
 							"name": "osTextBlock1",
 							"type": "Microsoft.Common.TextBlock",
@@ -170,7 +170,7 @@
 							"options": {
 								"text": "The Operating System has been recommended for you based on your selection of runtime stack."
 							}
-						},							
+						},
 						{
 							"name": "functionAppKind",
 							"type": "Microsoft.Common.OptionsGroup",
@@ -178,7 +178,6 @@
 							"defaultValue": "[if(equals(steps('basics').runtimeStackName, 'python'),'Linux', 'Windows')]",
 							"constraints": {
 								"allowedValues": "[if(equals(steps('basics').runtimeStackName, 'python'), parse('[{\"label\":\"Linux\",\"value\":\"functionapp,linux\"}]'), parse('[{\"label\":\"Windows\",\"value\":\"functionapp\"},{\"label\":\"Linux\",\"value\":\"functionapp,linux\"}]'))]"
-									
 							},
 							"visible": true
 						},
@@ -237,7 +236,7 @@
 									"toolTip": "Select 'No' to use an existing server farm. The plans listed will be limited to those which are compatible with the runtime, operating system, and plan type selected.",
 									"constraints": {
 										"allowedValues": [
-																						{
+											{
 												"label": "Yes",
 												"value": true
 											},
@@ -302,7 +301,7 @@
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},
 								{
-									"type":"Microsoft.Common.ResourceGroupSelector",
+									"type": "Microsoft.Common.ResourceGroupSelector",
 									"name": "hostingPlanResourceGroup",
 									"allowedMode": "Both",
 									"placeholder": "rg-<hostingPlanName> or rg-hosting-plans-<env>-<region>",
@@ -313,12 +312,12 @@
 										"location": "[steps('basics').scope.location.name]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
-								},								
+								},
 								{
 									"name": "hostingPlanPricing",
 									"type": "Microsoft.Common.DropDown",
 									"label": "App Service Plan pricing",
-									"multiLine": true,									
+									"multiLine": true,
 									"defaultValue": "Elastic Premium EP1",
 									"toolTip": "Select the hosting plan pricing",
 									"constraints": {
@@ -366,24 +365,24 @@
 										]
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
-								}	
+								}
 							],
 							"visible": true
-						}								
+						}
 					]
 				},
 				{
-                    "name": "storage",
-                    "label": "Storage",
-                    "elements": [
+					"name": "storage",
+					"label": "Storage",
+					"elements": [
 						{
-                            "name": "storageApi",
-                            "type": "Microsoft.Solutions.ArmApiControl",
-                            "request": {
-                                "method": "GET",
-                                "path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
-                            }
-                        },
+							"name": "storageApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
+							}
+						},
 						{
 							"name": "name_checkNameAvailability",
 							"type": "Microsoft.Solutions.ArmApiControl",
@@ -441,17 +440,17 @@
 					]
 				},
 				{
-                    "name": "networking",
-                    "label": "Networking",
-                    "elements": [
+					"name": "networking",
+					"label": "Networking",
+					"elements": [
 						{
-                            "name": "subscriptionsApi",
-                            "type": "Microsoft.Solutions.ArmApiControl",
-                            "request": {
-                                "method": "GET",
-                                "path": "/subscriptions?api-version=2022-12-01"
-                            }
-                        },
+							"name": "subscriptionsApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "/subscriptions?api-version=2022-12-01"
+							}
+						},
 						{
 							"name": "faPrivateDnsZonesApi",
 							"type": "Microsoft.Solutions.ArmApiControl",
@@ -497,25 +496,25 @@
 							}
 						},
 						{
-                            "name": "publicAccess",
-                            "type": "Microsoft.Common.OptionsGroup",
-                            "label": "Enable public access",
-                            "defaultValue": "On",
-                            "toolTip": "Public access is applied to both main site and advanced tool site. Deny public network access will block all incoming traffic except that comes from private endpoints.",
-                            "constraints": {
-                                "required": false,
-                                "allowedValues": [
-                                    {
-                                        "label": "On",
-                                        "value": true
-                                    },
-                                    {
-                                        "label": "Off",
-                                        "value": false
-                                    }
-                                ]
-                            }
-                        },
+							"name": "publicAccess",
+							"type": "Microsoft.Common.OptionsGroup",
+							"label": "Enable public access",
+							"defaultValue": "On",
+							"toolTip": "Public access is applied to both main site and advanced tool site. Deny public network access will block all incoming traffic except that comes from private endpoints.",
+							"constraints": {
+								"required": false,
+								"allowedValues": [
+									{
+										"label": "On",
+										"value": true
+									},
+									{
+										"label": "Off",
+										"value": false
+									}
+								]
+							}
+						},
 						{
 							"name": "warningNetworkIntegrationNotAvailable",
 							"type": "Microsoft.Common.InfoBox",
@@ -526,17 +525,17 @@
 								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-networking-options?tabs=azure-portal#matrix-of-networking-features"
 							}
 						},
-                        {
-                            "name": "networkInjection",
-                            "type": "Microsoft.Common.OptionsGroup",
-                            "label": "Enable network integration",
-                            "defaultValue": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), 'No', 'Yes')]",
-                            "toolTip": "Allows your function app to attach to and/or access resources inside a virtual network.",
-                            "constraints": {
-                                "allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), parse('[{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]"
-                            },                            
-                            "visible": true
-                        },
+						{
+							"name": "networkInjection",
+							"type": "Microsoft.Common.OptionsGroup",
+							"label": "Enable network integration",
+							"defaultValue": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), 'No', 'Yes')]",
+							"toolTip": "Allows your function app to attach to and/or access resources inside a virtual network.",
+							"constraints": {
+								"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), parse('[{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]"
+							},
+							"visible": true
+						},
 						{
 							"name": "virtualNetwork",
 							"type": "Microsoft.Common.Section",
@@ -617,7 +616,7 @@
 									"visible": "[steps('networking').virtualNetwork.newVNet]"
 								},
 								{
-									"type":"Microsoft.Common.ResourceGroupSelector",
+									"type": "Microsoft.Common.ResourceGroupSelector",
 									"name": "networkingResourceGroup",
 									"allowedMode": "Both",
 									"placeholder": "<hosting plan rg name> or rg-app-service-plans-networking-<env>-<region>",
@@ -629,7 +628,7 @@
 										"location": "[steps('basics').scope.location.name]"
 									},
 									"visible": "[steps('networking').virtualNetwork.newVNet]"
-								},			
+								},
 								{
 									"name": "vnetAddressPrefix",
 									"type": "Microsoft.Common.TextBox",
@@ -646,7 +645,7 @@
 								}
 							],
 							"visible": "[steps('networking').networkInjection]"
-						},			
+						},
 						{
 							"name": "inboundAccess",
 							"type": "Microsoft.Common.Section",
@@ -671,7 +670,7 @@
 										"allowedValues": "[if(steps('networking').publicAccess, parse('[{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]"
 									},
 									"visible": true
-								},								
+								},
 								{
 									"name": "subnetName",
 									"type": "Microsoft.Common.TextBox",
@@ -699,7 +698,7 @@
 										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
 									},
 									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE)]"
-								},								
+								},
 								{
 									"name": "snetTextBlock",
 									"type": "Microsoft.Common.TextBlock",
@@ -714,7 +713,7 @@
 									"label": "Inbound subnet",
 									"toolTip": "Select an existing subnet for the private Endpoints.",
 									"constraints": {
-										"required": true,										
+										"required": true,
 										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (item) => and(empty(item.properties.delegations), equals(item.properties.privateEndpointNetworkPolicies, 'Disabled'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE)]"
@@ -727,14 +726,14 @@
 										"icon": "Info",
 										"text": "With the use of Private Endpoints, the environment-specific 'azurewebsites' Private DNS zone will be created and linked to the new Virtual Network."
 									}
-								},							
+								},
 								{
 									"name": "enablePrivateDNS",
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "DNS",
 									"defaultValue": "Azure Private DNS Zone",
 									"toolTip": "Choose 'Azure Private DNS Zone' to register the private endpoints with Azure Private DNS Zones. If you are deploying a new virtual network, a new Private DNS Zone will be created in the Network resource group chosen above.",
-									"constraints": {																										  																																																												
+									"constraints": {
 										"allowedValues": [
 											{
 												"label": "Azure Private DNS Zone",
@@ -747,7 +746,7 @@
 										]
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE)]"
-								},								
+								},
 								{
 									"name": "PrivateDNSZonesSubscription",
 									"type": "Microsoft.Common.DropDown",
@@ -762,18 +761,18 @@
 									"visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, equals(steps('networking').virtualNetwork.newVNet, false))]"
 								},
 								{
-                                    "name": "privateDnsZone",
-                                    "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, equals(steps('networking').virtualNetwork.newVNet, false))]",
-                                    "label": "Private DNS Zone",
-                                    "defaultValue": "",
-                                    "multiLine": true,
-                                    "toolTip": "Select the existing Private DNS Zone for Azure Function Apps.",
-                                    "constraints": {
-                                        "required": true,
-                                        "allowedValues": "[map(filter(steps('networking').faPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.azurewebsites.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
-                                    }
-                                }								
+									"name": "privateDnsZone",
+									"type": "Microsoft.Common.DropDown",
+									"visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, equals(steps('networking').virtualNetwork.newVNet, false))]",
+									"label": "Private DNS Zone",
+									"defaultValue": "",
+									"multiLine": true,
+									"toolTip": "Select the existing Private DNS Zone for Azure Function Apps.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(filter(steps('networking').faPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.azurewebsites.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+									}
+								}
 							],
 							"visible": "[steps('networking').networkInjection]"
 						},
@@ -829,7 +828,7 @@
 										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
 									},
 									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration)]"
-								},		
+								},
 								{
 									"name": "snetExistingAspTextBlock",
 									"type": "Microsoft.Common.TextBlock",
@@ -868,7 +867,6 @@
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
 								}
-									
 							],
 							"visible": "[steps('networking').networkInjection]"
 						},
@@ -939,7 +937,7 @@
 										"icon": "Info",
 										"text": "With the use of Private Endpoints, the environment-specific storage account 'blob', 'file', 'queue', and 'table' Private DNS zones will be created and linked to the new Virtual Network."
 									}
-								},								
+								},
 								{
 									"name": "snetTextBlock",
 									"type": "Microsoft.Common.TextBlock",
@@ -958,7 +956,7 @@
 										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (item) => and(empty(item.properties.delegations), equals(item.properties.privateEndpointNetworkPolicies, 'Disabled'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE)]"
-								},								
+								},
 								{
 									"name": "enablePrivateDNS",
 									"type": "Microsoft.Common.OptionsGroup",
@@ -978,7 +976,7 @@
 										]
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE)]"
-								},								
+								},
 								{
 									"name": "PrivateDNSZonesSubscription",
 									"type": "Microsoft.Common.DropDown",
@@ -993,66 +991,66 @@
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]"
 								},
 								{
-                                    "name": "blobPrivateDnsZone",
-                                    "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
-                                    "label": "Storage blobs private DNS zone",
-                                    "defaultValue": "",
-                                    "multiLine": true,
-                                    "toolTip": "Select the existing Private DNS Zone for Azure Blobs.",
-                                    "constraints": {
-                                        "required": true,
-                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.blob.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
-                                    }
-                                },
+									"name": "blobPrivateDnsZone",
+									"type": "Microsoft.Common.DropDown",
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+									"label": "Storage blobs private DNS zone",
+									"defaultValue": "",
+									"multiLine": true,
+									"toolTip": "Select the existing Private DNS Zone for Azure Blobs.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.blob.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+									}
+								},
 								{
-                                    "name": "filePrivateDnsZone",
-                                    "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
-                                    "label": "Storage files private DNS zone",
-                                    "defaultValue": "",
-                                    "multiLine": true,
-                                    "toolTip": "Select the existing Private DNS Zone for Azure Files.",
-                                    "constraints": {
-                                        "required": true,
-                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.file.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
-                                    }
-                                },
+									"name": "filePrivateDnsZone",
+									"type": "Microsoft.Common.DropDown",
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+									"label": "Storage files private DNS zone",
+									"defaultValue": "",
+									"multiLine": true,
+									"toolTip": "Select the existing Private DNS Zone for Azure Files.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.file.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+									}
+								},
 								{
-                                    "name": "queuePrivateDnsZone",
-                                    "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
-                                    "label": "Storage queues private DNS zone",
-                                    "defaultValue": "",
-                                    "multiLine": true,
-                                    "toolTip": "Select the existing Private DNS Zone for Azure Queues.",
-                                    "constraints": {
-                                        "required": true,
-                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.queue.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
-                                    }
-                                },
+									"name": "queuePrivateDnsZone",
+									"type": "Microsoft.Common.DropDown",
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+									"label": "Storage queues private DNS zone",
+									"defaultValue": "",
+									"multiLine": true,
+									"toolTip": "Select the existing Private DNS Zone for Azure Queues.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.queue.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+									}
+								},
 								{
-                                    "name": "tablePrivateDnsZone",
-                                    "type": "Microsoft.Common.DropDown",
-                                    "visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
-                                    "label": "Storage tables private DNS zone",
-                                    "defaultValue": "",
-                                    "multiLine": true,
-                                    "toolTip": "Select the existing Private DNS Zone for Azure Tables.",
-                                    "constraints": {
-                                        "required": true,
-                                        "allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.table.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
-                                    }
-                                }
+									"name": "tablePrivateDnsZone",
+									"type": "Microsoft.Common.DropDown",
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]",
+									"label": "Storage tables private DNS zone",
+									"defaultValue": "",
+									"multiLine": true,
+									"toolTip": "Select the existing Private DNS Zone for Azure Tables.",
+									"constraints": {
+										"required": true,
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.table.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+									}
+								}
 							],
 							"visible": "[and(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration)]"
-						}                      
+						}
 					]
 				},
 				{
-                    "name": "monitoring",
-                    "label": "Monitoring",
-                    "elements": [
+					"name": "monitoring",
+					"label": "Monitoring",
+					"elements": [
 						{
 							"name": "diagnostics",
 							"type": "Microsoft.Common.Section",
@@ -1107,7 +1105,7 @@
 									"visible": true,
 									"options": {
 										"text": "Azure Monitor application insights is an Application Performance Management (APM) service for developers and DevOps professionals. Enable it below to automatically monitor your application. It will detect performance anomalies, and includes powerful analytics tools to help you diagnose issues and to understand what users actually do with your app. Your bill is based on amount of data used by Application Insights and your data retention settings.",
-									    "link": {
+										"link": {
 											"label": "Learn more",
 											"uri": "https://go.microsoft.com/fwlink/?linkid=2087013"
 										}
@@ -1137,10 +1135,10 @@
 					]
 				},
 				{
-                    "name": "tags",
-                    "label": "Tags",
-                    "elements": [
-                        {
+					"name": "tags",
+					"label": "Tags",
+					"elements": [
+						{
 							"name": "tags",
 							"type": "Microsoft.Common.TagsByResource",
 							"resources": [
@@ -1153,34 +1151,34 @@
 								"Microsoft.Web/serverFarms"
 							]
 						}
-                    ]
-                }
-            ]
-        },
-        "outputs": {
-            "kind": "Subscription",
-            "location": "[steps('basics').scope.location.name]",
-            "subscriptionId": "[steps('basics').scope.subscription.id]",
-            "parameters": {
-                "location": "[steps('basics').scope.location.name]",
-				"nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]",
-                "functionAppName": "[steps('basics').functionAppName]",
+					]
+				}
+			]
+		},
+		"outputs": {
+			"kind": "Subscription",
+			"location": "[steps('basics').scope.location.name]",
+			"subscriptionId": "[steps('basics').scope.subscription.id]",
+			"parameters": {
+				"location": "[steps('basics').scope.location.name]",
+				"nameConvResTypeAtEnd": "[bool(steps('basics').nameConvResTypeAtEnd)]",
+				"functionAppName": "[steps('basics').functionAppName]",
 				"functionAppResourceGroupName": "[steps('basics').functionAppResourceGroup.value.name]",
-                "functionAppKind": "[steps('basics').functionAppKind]",
-                "runtimeStack": "[steps('basics').runtimeStackName]",
-                "runtimeVersion": "[steps('basics').runtimeStackMinorVersion]",
-				"deployHostPlan": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), false, steps('basics').hosting.newServerFarm)]",
-				"hostingPlanType": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanType, 'NotApplicable')]",                
+				"functionAppKind": "[steps('basics').functionAppKind]",
+				"runtimeStack": "[steps('basics').runtimeStackName]",
+				"runtimeVersion": "[steps('basics').runtimeStackMinorVersion]",
+				"deployHostPlan": "[bool(if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), false, steps('basics').hosting.newServerFarm))]",
+				"hostingPlanType": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanType, 'NotApplicable')]",
 				"hostingPlanId": "[if(steps('basics').hosting.newServerFarm, '', steps('basics').hosting.existingHostingPlanId)]",
-                "hostingPlanName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanName, '')]",
+				"hostingPlanName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanName, '')]",
 				"hostingPlanResourceGroupName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanResourceGroup.value.name, '')]",
 				"hostingPlanPricing": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanPricing, 'NotApplicable')]",
 				"hostingPlanZoneRedundant": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.zoneRedundant, false)]",
-                "storageAccountName": "[steps('storage').name]",
-				"enablePublicAccess": "[steps('networking').publicAccess]",
-				"deployNetworking": "[if(steps('networking').networkInjection, steps('networking').virtualNetwork.newVNet, false)]",
+				"storageAccountName": "[steps('storage').name]",
+				"enablePublicAccess": "[bool(steps('networking').publicAccess)]",
+				"deployNetworking": "[bool(if(steps('networking').networkInjection, steps('networking').virtualNetwork.newVNet, false))]",
 				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",
-                "enableVNetIntegration": "[if(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration, false)]",
+				"enableVNetIntegration": "[if(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration, false)]",
 				"functionAppInboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
 				"functionAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
 				"enableStoragePrivateEndpoints": "[if(and(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').storagePrivateEndpoints.enablePE, false)]",
@@ -1190,10 +1188,10 @@
 				"vnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
 				"functionAppInboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
 				"functionAppInboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
-				"functionAppOutboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.subnetName, '')]",	
+				"functionAppOutboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.subnetName, '')]",
 				"functionAppOutboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
 				"storagePrivateEndpointSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
-				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",					
+				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",
 				"functionAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), equals(steps('networking').publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
 				"storageBlobDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
 				"storageFileDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
@@ -1201,8 +1199,8 @@
 				"storageTableDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
 				"logAnalyticsWorkspaceId": "[if(equals(steps('monitoring').diagnostics.enableDiagnostics, true), steps('monitoring').diagnostics.logAnalyticsWorkspace.id, '')]",
 				"enableApplicationInsights": "[steps('monitoring').appInsights.enableApplicationInsights]",
-                "tags": "[steps('tags').tags]"
-            }
-        }
-    }
+				"tags": "[steps('tags').tags]"
+			}
+		}
+	}
 }
