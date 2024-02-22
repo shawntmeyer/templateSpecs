@@ -45,7 +45,7 @@
         },
         "outputs": {
             "kind": "ResourceGroup",
-			"resourceGroupId": "[steps('basics').scope.resourceGroup.Id]",
+			"resourceGroupId": "[steps('basics').scope.resourceGroup.id]",
             "location": "[steps('basics').scope.location.name]",
             "parameters": {
                 "nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]"
