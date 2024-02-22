@@ -10,7 +10,7 @@ param timestamp string
 
 resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
   location: location
-  name: vnetName //!empty(vnetName) ? vnetName : replace(nameConvVnet, 'purpose', hostingPlanName)
+  name: vnetName
   properties: {
     addressSpace: {
       addressPrefixes: [

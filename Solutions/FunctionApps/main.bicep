@@ -232,7 +232,6 @@ var subnetStoragePrivateEndpoints = enableStoragePrivateEndpoints ? [
     name: storagePrivateEndpointSubnetName
     properties: {
       privateEndpointNetworkPolicies: 'Disabled'
-      privateLinkServiceNetworkPolicies: 'Enabled'
       addressPrefix: storagePrivateEndpointSubnetAddressPrefix
     }
   }
@@ -243,7 +242,6 @@ var subnetInboundPrivateEndpoint = enableInboundPrivateEndpoint ? [
     name: functionAppInboundSubnetName
     properties: {
       privateEndpointNetworkPolicies: 'Disabled'
-      privateLinkServiceNetworkPolicies: 'Enabled'
       addressPrefix: functionAppInboundSubnetAddressPrefix
     }
   }
