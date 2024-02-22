@@ -35,8 +35,8 @@ param runtimeVersion string = '.NET 8 Isolated'
 
 // Hosting Plan
 
-@description('Optional. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "hostingPlanId" parameter must be provided.')
-param deployHostPlan bool
+@description('Required. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "hostingPlanId" parameter must be provided.')
+param deployHostingPlan bool
 
 @description('''Optional. When you create a function app in Azure, you must choose a hosting plan for your app.
 There are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. 
@@ -207,8 +207,6 @@ var locations = (loadJsonContent('../../data/locations.json'))[environment().nam
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
 var nameConvVnet = nameConvResTypeAtEnd ? 'purpose-${locations[location].abbreviation}-${resourceAbbreviations.virtualNetworks}' : '${resourceAbbreviations.virtualNetworks}-purpose-${locations[location].abbreviation}'
-
-var deployHostingPlan = hostingPlanType != 'Consumption' ? deployHostPlan : false
 
 var subnetOutbound = enableVnetIntegration ? [
   {

@@ -1167,7 +1167,7 @@
 				"functionAppKind": "[steps('basics').functionAppKind]",
 				"runtimeStack": "[steps('basics').runtimeStackName]",
 				"runtimeVersion": "[steps('basics').runtimeStackMinorVersion]",
-				"deployHostPlan": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), false, steps('basics').hosting.newServerFarm)]",
+				"deployHostingPlan": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), false, steps('basics').hosting.newServerFarm)]",
 				"hostingPlanType": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanType, 'NotApplicable')]",
 				"hostingPlanId": "[if(steps('basics').hosting.newServerFarm, '', steps('basics').hosting.existingHostingPlanId)]",
 				"hostingPlanName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanName, '')]",
