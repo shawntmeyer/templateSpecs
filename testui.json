@@ -48,7 +48,7 @@
 			"resourceGroupId": "[steps('basics').scope.resourceGroup.id]",
             "location": "[steps('basics').scope.location.name]",
             "parameters": {
-                "nameConvResTypeAtEnd": "[steps('basics').nameConvResTypeAtEnd]"
+                "nameConvResTypeAtEnd": "[bool(steps('basics').nameConvResTypeAtEnd)]"
             }
         }
     }
