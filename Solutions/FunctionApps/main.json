@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "4904633924207188960"
+      "templateHash": "16030768191968504842"
     }
   },
   "parameters": {
@@ -738,8 +738,8 @@
     "nameConvVnet": "[if(parameters('nameConvResTypeAtEnd'), format('purpose-{0}-{1}', variables('locations')[parameters('location')].abbreviation, variables('resourceAbbreviations').virtualNetworks), format('{0}-purpose-{1}', variables('resourceAbbreviations').virtualNetworks, variables('locations')[parameters('location')].abbreviation))]",
     "deployHostingPlan": "[if(not(equals(parameters('hostingPlanType'), 'Consumption')), parameters('deployHostPlan'), false())]",
     "subnetOutbound": "[if(parameters('enableVnetIntegration'), createArray(createObject('name', parameters('functionAppOutboundSubnetName'), 'properties', createObject('delegations', createArray(createObject('name', 'webapp', 'properties', createObject('serviceName', 'Microsoft.Web/serverFarms'))), 'addressPrefix', parameters('functionAppOutboundSubnetAddressPrefix')))), createArray())]",
-    "subnetStoragePrivateEndpoints": "[if(parameters('enableStoragePrivateEndpoints'), createArray(createObject('name', parameters('storagePrivateEndpointSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'privateLinkServiceNetworkPolicies', 'Enabled', 'addressPrefix', parameters('storagePrivateEndpointSubnetAddressPrefix')))), createArray())]",
-    "subnetInboundPrivateEndpoint": "[if(parameters('enableInboundPrivateEndpoint'), createArray(createObject('name', parameters('functionAppInboundSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'privateLinkServiceNetworkPolicies', 'Enabled', 'addressPrefix', parameters('functionAppInboundSubnetAddressPrefix')))), createArray())]",
+    "subnetStoragePrivateEndpoints": "[if(parameters('enableStoragePrivateEndpoints'), createArray(createObject('name', parameters('storagePrivateEndpointSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'addressPrefix', parameters('storagePrivateEndpointSubnetAddressPrefix')))), createArray())]",
+    "subnetInboundPrivateEndpoint": "[if(parameters('enableInboundPrivateEndpoint'), createArray(createObject('name', parameters('functionAppInboundSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'addressPrefix', parameters('functionAppInboundSubnetAddressPrefix')))), createArray())]",
     "storagePrivateDnsZoneNames": "[if(parameters('enableStoragePrivateEndpoints'), createArray(format('privatelink.blob.{0}', environment().suffixes.storage), format('privatelink.file.{0}', environment().suffixes.storage), format('privatelink.queue.{0}', environment().suffixes.storage), format('privatelink.table.{0}', environment().suffixes.storage)), createArray())]",
     "websiteSuffixes": {
       "azurecloud": "azurewebsites.net",
@@ -806,7 +806,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "14083225680605470254"
+              "templateHash": "8664507944103980250"
             }
           },
           "parameters": {
@@ -936,6 +936,7 @@
                 }
               },
               "dependsOn": [
+                "snets",
                 "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
               ]
             }
