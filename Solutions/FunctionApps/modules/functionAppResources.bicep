@@ -218,6 +218,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   location: location
   tags: contains(tags, 'Microsoft.Web/sites') ? tags['Microsoft.Web/sites'] : {}
   properties: {
+    httpsOnly: true
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
     serverFarmId: !empty(hostingPlanId) ? hostingPlanId : null
     siteConfig: {
