@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "8955673410397553078"
+      "templateHash": "3035983628438629139"
     }
   },
   "parameters": {
@@ -34,7 +34,7 @@
         "description": "Required. The name of the resource group where the function App will be deployed."
       }
     },
-    "deployplan": {
+    "deployPlan": {
       "type": "bool",
       "metadata": {
         "description": "Required. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not \"Consumption\", then the \"planId\" parameter must be provided."
@@ -45,8 +45,7 @@
       "defaultValue": "Standard",
       "allowedValues": [
         "Consumption",
-        "Standard",
-        "NotApplicable"
+        "Standard"
       ],
       "metadata": {
         "description": "Optional. When you create a logic app in Azure, you must choose a hosting plan for your app.\r\nThere are two basic hosting plans provided by Azure for logic apps: Consumption or Standard plans. \r\n* Consumption: Best for entry-level. Pay only as much as your workflow runs.\r\n* Standard: Best for enterprise-level, serverless applications, with event-based scaling and networking isolation.\r\n"
@@ -756,7 +755,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "4825928401459376354"
+              "templateHash": "13569712095778283213"
             }
           },
           "parameters": {
@@ -788,10 +787,10 @@
               "properties": {
                 "definition": {
                   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-                  "contentVersion": "1.0.0.0",
-                  "parameters": "[parameters('parameters')]",
-                  "zoneRedundancy": "[if(not(empty(parameters('zoneRedundancy'))), parameters('zoneRedundancy'), null())]"
-                }
+                  "contentVersion": "1.0.0.0"
+                },
+                "parameters": "[parameters('parameters')]",
+                "zoneRedundancy": "[if(not(empty(parameters('zoneRedundancy'))), parameters('zoneRedundancy'), null())]"
               },
               "tags": "[if(contains(parameters('tags'), 'Microsoft.Logic/workflows'), parameters('tags')['Microsoft.Logic/workflows'], createObject())]"
             }
@@ -1005,7 +1004,7 @@
       ]
     },
     {
-      "condition": "[and(equals(parameters('planType'), 'Standard'), parameters('deployplan'))]",
+      "condition": "[and(equals(parameters('planType'), 'Standard'), parameters('deployPlan'))]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "[format('plan-{0}', parameters('timestamp'))]",
@@ -1045,7 +1044,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "14381702248698366040"
+              "templateHash": "5346664389190689064"
             }
           },
           "parameters": {
@@ -1074,6 +1073,7 @@
               "apiVersion": "2023-01-01",
               "name": "[parameters('name')]",
               "location": "[parameters('location')]",
+              "kind": "elastic",
               "sku": "[parameters('sku')]",
               "tags": "[if(contains(parameters('tags'), 'Microsoft.Web/serverfarms'), parameters('tags')['Microsoft.Web/serverfarms'], createObject())]",
               "properties": {
@@ -1144,7 +1144,7 @@
           "logicAppName": {
             "value": "[parameters('logicAppName')]"
           },
-          "planId": "[if(not(empty(parameters('planId'))), createObject('value', parameters('planId')), if(parameters('deployplan'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNamePlan')), 'Microsoft.Resources/deployments', format('plan-{0}', parameters('timestamp'))), '2022-09-01').outputs.hostingPlanId.value), createObject('value', '')))]",
+          "planId": "[if(not(empty(parameters('planId'))), createObject('value', parameters('planId')), if(parameters('deployPlan'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNamePlan')), 'Microsoft.Resources/deployments', format('plan-{0}', parameters('timestamp'))), '2022-09-01').outputs.hostingPlanId.value), createObject('value', '')))]",
           "storageAccountName": {
             "value": "[parameters('storageAccountName')]"
           },
@@ -1173,7 +1173,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "4591528245645863080"
+              "templateHash": "13338812274715538847"
             }
           },
           "parameters": {
@@ -1418,12 +1418,14 @@
             {
               "condition": "[parameters('enableApplicationInsights')]",
               "type": "Microsoft.Insights/components",
-              "apiVersion": "2020-02-02",
+              "apiVersion": "2020-02-02-preview",
               "name": "[format('{0}-insights', parameters('logicAppName'))]",
               "kind": "web",
               "location": "[parameters('location')]",
               "properties": {
                 "Application_Type": "web",
+                "Request_Source": "IbizaWebAppExtensionCreate",
+                "Flow_Type": "RedField",
                 "WorkspaceResourceId": "[if(not(empty(parameters('logAnalyticsWorkspaceId'))), parameters('logAnalyticsWorkspaceId'), null())]"
               },
               "tags": "[if(contains(parameters('tags'), 'Microsoft.Insights/components'), parameters('tags')['Microsoft.Insights/components'], createObject())]"
@@ -1457,7 +1459,7 @@
               "type": "Microsoft.Web/sites/config",
               "apiVersion": "2022-09-01",
               "name": "[format('{0}/{1}', parameters('logicAppName'), 'appsettings')]",
-              "properties": "[if(parameters('enableApplicationInsights'), union(createObject('APP_KIND', 'workflowapp', 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'AzureFunctionsJobHost__extensionBundle__id', 'Microsoft.Azure.Functions.ExtensionBundle.Workflows', 'AzureFunctionsJobHost__extensionBundle__version', '[1.*, 2.0.0)', 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', 'node', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('logicAppName')), 'WEBSITE_NODE_DEFAULT_VERSION', '~18'), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', if(parameters('enableApplicationInsights'), reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('logicAppName'))), '2020-02-02').ConnectionString, null()))), createObject('APP_KIND', 'workflowapp', 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'AzureFunctionsJobHost__extensionBundle__id', 'Microsoft.Azure.Functions.ExtensionBundle.Workflows', 'AzureFunctionsJobHost__extensionBundle__version', '[1.*, 2.0.0)', 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', 'node', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('logicAppName')), 'WEBSITE_NODE_DEFAULT_VERSION', '~18'))]",
+              "properties": "[if(parameters('enableApplicationInsights'), union(createObject('APP_KIND', 'workflowApp', 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'AzureFunctionsJobHost__extensionBundle__id', 'Microsoft.Azure.Functions.ExtensionBundle.Workflows', 'AzureFunctionsJobHost__extensionBundle__version', '[1.*, 2.0.0)', 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', 'node', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('logicAppName')), 'WEBSITE_NODE_DEFAULT_VERSION', '~18'), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', if(parameters('enableApplicationInsights'), reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('logicAppName'))), '2020-02-02-preview').ConnectionString, null()))), createObject('APP_KIND', 'workflowApp', 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'AzureFunctionsJobHost__extensionBundle__id', 'Microsoft.Azure.Functions.ExtensionBundle.Workflows', 'AzureFunctionsJobHost__extensionBundle__version', '[1.*, 2.0.0)', 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', 'node', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('logicAppName')), 'WEBSITE_NODE_DEFAULT_VERSION', '~18'))]",
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('logicAppName')))]",
                 "[resourceId('Microsoft.Web/sites', parameters('logicAppName'))]",
@@ -1519,7 +1521,11 @@
               "properties": {
                 "logs": [
                   {
-                    "category": "logicAppLogs",
+                    "category": "FunctionAppLogs",
+                    "enabled": true
+                  },
+                  {
+                    "category": "WorkflowRuntime",
                     "enabled": true
                   }
                 ],

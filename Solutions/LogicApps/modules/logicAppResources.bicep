@@ -20,7 +20,7 @@ param tags object
 
 
 var commonAppSettings = {
-  APP_KIND: 'workflowapp'  
+  APP_KIND: 'workflowApp'  
   AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
   AzureFunctionsJobHost__extensionBundle__id: 'Microsoft.Azure.Functions.ExtensionBundle.Workflows'
   AzureFunctionsJobHost__extensionBundle__version: '[1.*, 2.0.0)'
@@ -191,12 +191,14 @@ resource storageAccount_blob_diagnosticSettings 'Microsoft.Insights/diagnosticSe
   }
 }
 
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if(enableApplicationInsights) {
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02-preview' = if(enableApplicationInsights) {
   name: '${logicAppName}-insights'
   kind: 'web'
   location: location
   properties: {
     Application_Type: 'web'
+    Request_Source: 'IbizaWebAppExtensionCreate'
+    Flow_Type: 'RedField'
     WorkspaceResourceId: !empty(logAnalyticsWorkspaceId) ? logAnalyticsWorkspaceId : null
   }
   tags: contains(tags, 'Microsoft.Insights/components') ? tags['Microsoft.Insights/components'] : {}
@@ -272,8 +274,13 @@ resource logicApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@202
   properties: {
     logs: [
       {
-        category: 'logicAppLogs'
+        category: 'FunctionAppLogs'
         enabled: true
+      }
+      {
+        category: 'WorkflowRuntime'
+        enabled: true
+      
       }
     ]
     metrics: [

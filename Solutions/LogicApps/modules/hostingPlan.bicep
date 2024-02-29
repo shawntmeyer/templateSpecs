@@ -1,20 +1,29 @@
 param location string
 param logAnalyticsWorkspaceId string
 param name string
-param sku object
+param planPricing string
 param tags object
 param zoneRedundant bool
 
+var sku = {
+  name: split(planPricing, '_')[1]
+  tier: split(planPricing, '_')[0]
+  capacity: zoneRedundant ? 3 : 1
+}
 
-resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
+resource hostingPlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   name: name
   location: location
+  kind: 'elastic'
   sku: sku
   tags: contains(tags, 'Microsoft.Web/serverfarms') ? tags['Microsoft.Web/serverfarms'] : {}
   properties: {
+    perSiteScaling: false
+    elasticScaleEnabled: true
+    isSpot: false
+    reserved: false    
     maximumElasticWorkerCount: 20
     zoneRedundant: zoneRedundant
-    numberOfWorkers: zoneRedundant? 3 : null
   }
 }
 

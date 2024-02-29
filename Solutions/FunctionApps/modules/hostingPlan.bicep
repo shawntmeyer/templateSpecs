@@ -3,10 +3,15 @@ param location string
 param logAnalyticsWorkspaceId string
 param functionAppKind string
 param name string
-param sku object
+param planPricing string
 param tags object
 param zoneRedundant bool
 
+var sku = {
+  name: split(planPricing, '_')[1]
+  tier: split(planPricing, '_')[0]
+  capacity: zoneRedundant ? 3 : 1
+}
 
 resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: name
@@ -17,7 +22,6 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
     maximumElasticWorkerCount: hostingPlanType == 'FunctionsPremium' ? 20 : 1
     reserved: contains(functionAppKind, 'linux') ? true : false
     zoneRedundant: zoneRedundant
-    numberOfWorkers: zoneRedundant? 3 : null
   }
 }
 

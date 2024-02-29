@@ -16,7 +16,7 @@ param logicAppResourceGroupName string
 // Hosting Plan
 
 @description('Required. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "planId" parameter must be provided.')
-param deployplan bool
+param deployPlan bool
 
 @description('''Optional. When you create a logic app in Azure, you must choose a hosting plan for your app.
 There are two basic hosting plans provided by Azure for logic apps: Consumption or Standard plans. 
@@ -26,7 +26,6 @@ There are two basic hosting plans provided by Azure for logic apps: Consumption 
 @allowed([
   'Consumption'
   'Standard'
-  'NotApplicable'
 ])
 param planType string = 'Standard'
 
@@ -279,17 +278,14 @@ module networking 'modules/networking.bicep' = if(planType == 'Standard' && depl
   ]
 }
 
-module plan 'modules/hostingPlan.bicep' = if(planType == 'Standard' && deployplan) {
+module plan 'modules/hostingPlan.bicep' = if(planType == 'Standard' && deployPlan) {
   name: 'plan-${timestamp}'
   scope: resourceGroup(resourceGroupNamePlan)
   params: {
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     name: planName
-    sku: {
-      name: split(planPricing, '_')[1]
-      tier: split(planPricing, '_')[0]
-    }
+    planPricing: planPricing
     tags: tags
     zoneRedundant: planZoneRedundant
   }
@@ -308,7 +304,7 @@ module logicAppResources 'modules/logicAppResources.bicep' = if(planType == 'Sta
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     logicAppName: logicAppName
-    planId:  !empty(planId) ? planId : ( deployplan ? plan.outputs.hostingPlanId : '' )
+    planId:  !empty(planId) ? planId : ( deployPlan ? plan.outputs.hostingPlanId : '' )
     storageAccountName: storageAccountName   
     nameConvPrivEndpoints: nameConvPrivEndpoints
     logicAppOutboundSubnetId: enableVnetIntegration ? ( !empty(logicAppOutboundSubnetId) ? logicAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''

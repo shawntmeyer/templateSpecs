@@ -222,7 +222,7 @@
 									"name": "planName",
 									"type": "Microsoft.Common.TextBox",
 									"label": "App Service Plan name",
-									"placeholder": "asp-<win/lnx>-<sku>-<env>-<region>",
+									"placeholder": "asp-logic-<sku>-<env>-<region>",
 									"toolTip": "The name of the app service plan used by the function App.",
 									"constraints": {
 										"required": true,
@@ -281,7 +281,7 @@
 								{
 									"name": "zoneRedundancyTextBlock",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(equals(steps('basics').plan.newPlan, true), contains(steps('basics').plan.planPricing, 'Standard'), contains(first(map(filter(steps('basics').plan.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
+									"visible": "[and(equals(steps('basics').plan.newPlan, true), equals(steps('basics').plan.type, 'Standard'), contains(first(map(filter(steps('basics').plan.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
 									"options": {
 										"text": "An App Service Plan can be deployed as a zone redundant service in the regions that support it. This is a deployment time only decision. You can't make an App Service Plan zone redundant after it has been deployed.",
 										"link": {
@@ -308,7 +308,7 @@
 											}
 										]
 									},
-									"visible": "[and(equals(steps('basics').plan.newPlan, true), contains(steps('basics').plan.planPricing, 'Standard'), contains(first(map(filter(steps('basics').plan.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
+									"visible": "[and(or(equals(steps('basics').plan.newPlan, true), equals(steps('basics').plan.type, 'Consumption')), contains(first(map(filter(steps('basics').plan.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
 								}
 							],
 							"visible": true
@@ -734,7 +734,7 @@
 							"label": "Outbound access",
 							"elements": [
 								{
-									"name": "enableVNetIntegration",
+									"name": "enableVnetIntegration",
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "Enable VNet Integration",
 									"defaultValue": "Yes",
@@ -765,7 +765,7 @@
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_]$",
 										"validationMessage": "Must be 2-80 characters long containing only alphanumeric characters, underscores, and hyphens. The first character must be an alphanumeric and the last an alphanumeric or underscore."
 									},
-									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration)]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVnetIntegration)]"
 								},
 								{
 									"name": "snetAddressPrefix",
@@ -779,7 +779,7 @@
 										"regex": "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:\/(1[0-9]|2[0-6]))$",
 										"validationMessage": "Invalid CIDR range. The address prefix must be in the range [10,26]."
 									},
-									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration)]"
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVnetIntegration)]"
 								},
 								{
 									"name": "snetExistingAspTextBlock",
@@ -787,7 +787,7 @@
 									"options": {
 										"text": "Select the subnet in the chosen virtual network to be used for integration. VNet Integration enables your app to make calls into the chosen virtual network. You can also put network security groups or route tables on this subnet to control all outbound traffic from your function app. The list of subnets is automatically filtered to only those delegated and linked to the app service plan specified on the basics page."
 									},
-									"visible": "[and(equals(steps('basics').plan.newPlan, false), equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
+									"visible": "[and(equals(steps('basics').plan.newPlan, false), equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVnetIntegration)]"
 								},
 								{
 									"name": "wrongVnetExistingAspErrorBox",
@@ -817,7 +817,7 @@
 										"required": true,
 										"allowedValues": "[if(equals(steps('basics').plan.newPlan, false), map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').plan.existingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}'))), map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}'))))]"
 									},
-									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
+									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVnetIntegration)]"
 								}
 							],
 							"visible": "[and(equals(steps('basics').plan.type, 'Standard'), steps('networking').networkInjection)]"
@@ -995,7 +995,7 @@
 									}
 								}
 							],
-							"visible": "[and(equals(steps('basics').plan.type, 'Standard'), steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration)]"
+							"visible": "[and(equals(steps('basics').plan.type, 'Standard'), steps('networking').networkInjection, steps('networking').outboundAccess.enableVnetIntegration)]"
 						},
 						{
 							"name": "notApplicableTextBlock",
@@ -1126,28 +1126,28 @@
 				"logicAppName": "[steps('basics').logicAppName]",
 				"logicAppResourceGroupName": "[steps('basics').logicAppResourceGroup.value.name]",
 				"deployPlan": "[if(equals(steps('basics').plan.type, 'Consumption'), false, steps('basics').plan.newPlan)]",
-				"planType": "[if(steps('basics').plan.newPlan, steps('basics').plan.type, 'NotApplicable')]",
+				"planType": "[steps('basics').plan.type]",
 				"planId": "[if(steps('basics').plan.newPlan, '', steps('basics').plan.existingPlanId)]",
 				"planName": "[if(steps('basics').plan.newPlan, steps('basics').plan.planName, '')]",
 				"planResourceGroupName": "[if(steps('basics').plan.newPlan, steps('basics').plan.planResourceGroup.value.name, '')]",
-				"planPricing": "[if(steps('basics').plan.newPlan, steps('basics').plan.planPricing, 'NotApplicable')]",
+				"planPricing": "[if(steps('basics').plan.newPlan, steps('basics').plan.planPricing, 'WorkflowStandard_WS1')]",
 				"planZoneRedundant": "[if(steps('basics').plan.newPlan, steps('basics').plan.zoneRedundant, false)]",
 				"storageAccountName": "[if(equals(steps('basics').plan.type, 'Consumption'), '', steps('storage').name)]",
 				"enablePublicAccess": "[if(equals(steps('basics').plan.type, 'Consumption'), false, steps('networking').publicAccess)]",
 				"deployNetworking": "[if(steps('networking').networkInjection, steps('networking').virtualNetwork.newVNet, false)]",
 				"enableInboundPrivateEndpoint": "[if(equals(steps('basics').plan.type, 'Consumption'), false, steps('networking').inboundAccess.enablePE)]",
-				"enableVNetIntegration": "[if(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration, false)]",
+				"enableVnetIntegration": "[if(and(equals(steps('basics').plan.type, 'Standard'), steps('networking').networkInjection), steps('networking').outboundAccess.enableVnetIntegration, false)]",
 				"logicAppInboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
-				"logicAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
-				"enableStoragePrivateEndpoints": "[if(and(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').storagePrivateEndpoints.enablePE, false)]",
+				"logicAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVnetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
+				"enableStoragePrivateEndpoints": "[if(and(steps('networking').networkInjection, steps('networking').outboundAccess.enableVnetIntegration), steps('networking').storagePrivateEndpoints.enablePE, false)]",
 				"storagePrivateEndpointSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.peSubnet, '')]",
 				"vnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetName, '')]",
 				"networkingResourceGroupName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.networkingResourceGroup.value.name, '')]",
 				"vnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
 				"logicAppInboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
 				"logicAppInboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
-				"logicAppOutboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.subnetName, '')]",
-				"logicAppOutboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
+				"logicAppOutboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVnetIntegration), steps('networking').outboundAccess.subnetName, '')]",
+				"logicAppOutboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVnetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
 				"storagePrivateEndpointSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
 				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",
 				"logicAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), equals(steps('networking').publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",

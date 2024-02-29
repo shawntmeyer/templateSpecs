@@ -304,10 +304,7 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     name: hostingPlanName
-    sku: {
-      name: split(hostingPlanPricing, '_')[1]
-      tier: split(hostingPlanPricing, '_')[0]
-    }
+    planPricing: hostingPlanPricing
     tags: tags
     zoneRedundant: hostingPlanZoneRedundant
   }
