@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "3035983628438629139"
+      "templateHash": "10382491381176134680"
     }
   },
   "parameters": {
@@ -755,7 +755,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "13569712095778283213"
+              "templateHash": "5400683576802711077"
             }
           },
           "parameters": {
@@ -781,7 +781,7 @@
           "resources": [
             {
               "type": "Microsoft.Logic/workflows",
-              "apiVersion": "2019-05-01",
+              "apiVersion": "2016-10-01",
               "name": "[parameters('workflowName')]",
               "location": "[parameters('location')]",
               "properties": {
@@ -1024,11 +1024,8 @@
           "name": {
             "value": "[parameters('planName')]"
           },
-          "sku": {
-            "value": {
-              "name": "[split(parameters('planPricing'), '_')[1]]",
-              "tier": "[split(parameters('planPricing'), '_')[0]]"
-            }
+          "planPricing": {
+            "value": "[parameters('planPricing')]"
           },
           "tags": {
             "value": "[parameters('tags')]"
@@ -1044,7 +1041,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "5346664389190689064"
+              "templateHash": "8818382151319572545"
             }
           },
           "parameters": {
@@ -1057,8 +1054,8 @@
             "name": {
               "type": "string"
             },
-            "sku": {
-              "type": "object"
+            "planPricing": {
+              "type": "string"
             },
             "tags": {
               "type": "object"
@@ -1067,19 +1064,29 @@
               "type": "bool"
             }
           },
+          "variables": {
+            "sku": {
+              "name": "[split(parameters('planPricing'), '_')[1]]",
+              "tier": "[split(parameters('planPricing'), '_')[0]]",
+              "capacity": "[if(parameters('zoneRedundant'), 3, 1)]"
+            }
+          },
           "resources": [
             {
               "type": "Microsoft.Web/serverfarms",
-              "apiVersion": "2023-01-01",
+              "apiVersion": "2022-09-01",
               "name": "[parameters('name')]",
               "location": "[parameters('location')]",
               "kind": "elastic",
-              "sku": "[parameters('sku')]",
+              "sku": "[variables('sku')]",
               "tags": "[if(contains(parameters('tags'), 'Microsoft.Web/serverfarms'), parameters('tags')['Microsoft.Web/serverfarms'], createObject())]",
               "properties": {
+                "perSiteScaling": false,
+                "elasticScaleEnabled": true,
+                "isSpot": false,
+                "reserved": false,
                 "maximumElasticWorkerCount": 20,
-                "zoneRedundant": "[parameters('zoneRedundant')]",
-                "numberOfWorkers": "[if(parameters('zoneRedundant'), 3, null())]"
+                "zoneRedundant": "[parameters('zoneRedundant')]"
               }
             },
             {
@@ -1173,7 +1180,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "13338812274715538847"
+              "templateHash": "18162118224350469196"
             }
           },
           "parameters": {
@@ -1395,7 +1402,7 @@
               "type": "Microsoft.Insights/diagnosticSettings",
               "apiVersion": "2021-05-01-preview",
               "scope": "[format('Microsoft.Storage/storageAccounts/{0}/blobServices/{1}', toLower(parameters('storageAccountName')), 'default')]",
-              "name": "[format('{0}-logs', parameters('storageAccountName'))]",
+              "name": "[format('{0}-blob-diagnosticSettings', parameters('storageAccountName'))]",
               "properties": {
                 "workspaceId": "[parameters('logAnalyticsWorkspaceId')]",
                 "logs": [
@@ -1447,22 +1454,16 @@
                 "siteConfig": {
                   "ftpsState": "FtpsOnly",
                   "netFrameworkVersion": "v6.0",
-                  "use32BitWorkerProcess": false
+                  "use32BitWorkerProcess": false,
+                  "appSettings": "[union(createArray(createObject('name', 'APP_KIND', 'value', 'workflowapp'), createObject('name', 'AzureWebJobsStorage', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value)), createObject('name', 'AzureFunctionsJobHost__extensionBundle__id', 'value', 'Microsoft.Azure.Functions.ExtensionBundle.Workflows'), createObject('name', ' AzureFunctionsJobHost__extensionBundle__version', 'value', '[1.*, 2.0.0)'), createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', 'node'), createObject('name', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value)), createObject('name', 'WEBSITE_CONTENTSHARE', 'value', toLower(parameters('logicAppName'))), createObject('name', 'WEBSITE_NODE_DEFAULT_VERSION', 'value', '~18')), if(parameters('enableApplicationInsights'), createArray(createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('logicAppName'))), '2020-02-02-preview').ConnectionString)), createArray()))]"
                 },
                 "virtualNetworkSubnetId": "[if(not(empty(parameters('logicAppOutboundSubnetId'))), parameters('logicAppOutboundSubnetId'), null())]",
                 "vnetImagePullEnabled": "[if(parameters('enableStoragePrivateEndpoints'), true(), false())]",
                 "vnetContentShareEnabled": "[if(parameters('enableStoragePrivateEndpoints'), true(), false())]",
                 "vnetRouteAllEnabled": "[if(parameters('enableStoragePrivateEndpoints'), true(), false())]"
-              }
-            },
-            {
-              "type": "Microsoft.Web/sites/config",
-              "apiVersion": "2022-09-01",
-              "name": "[format('{0}/{1}', parameters('logicAppName'), 'appsettings')]",
-              "properties": "[if(parameters('enableApplicationInsights'), union(createObject('APP_KIND', 'workflowApp', 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'AzureFunctionsJobHost__extensionBundle__id', 'Microsoft.Azure.Functions.ExtensionBundle.Workflows', 'AzureFunctionsJobHost__extensionBundle__version', '[1.*, 2.0.0)', 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', 'node', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('logicAppName')), 'WEBSITE_NODE_DEFAULT_VERSION', '~18'), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', if(parameters('enableApplicationInsights'), reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('logicAppName'))), '2020-02-02-preview').ConnectionString, null()))), createObject('APP_KIND', 'workflowApp', 'AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'AzureFunctionsJobHost__extensionBundle__id', 'Microsoft.Azure.Functions.ExtensionBundle.Workflows', 'AzureFunctionsJobHost__extensionBundle__version', '[1.*, 2.0.0)', 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', 'node', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('logicAppName')), 'WEBSITE_NODE_DEFAULT_VERSION', '~18'))]",
+              },
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('logicAppName')))]",
-                "[resourceId('Microsoft.Web/sites', parameters('logicAppName'))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]"
               ]
             },

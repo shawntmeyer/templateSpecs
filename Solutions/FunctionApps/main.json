@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.25.53.49325",
-      "templateHash": "14974391333477241072"
+      "templateHash": "11301176612788677841"
     }
   },
   "parameters": {
@@ -994,11 +994,8 @@
           "name": {
             "value": "[parameters('hostingPlanName')]"
           },
-          "sku": {
-            "value": {
-              "name": "[split(parameters('hostingPlanPricing'), '_')[1]]",
-              "tier": "[split(parameters('hostingPlanPricing'), '_')[0]]"
-            }
+          "planPricing": {
+            "value": "[parameters('hostingPlanPricing')]"
           },
           "tags": {
             "value": "[parameters('tags')]"
@@ -1014,7 +1011,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "445426480512995972"
+              "templateHash": "17900806925608680170"
             }
           },
           "parameters": {
@@ -1033,8 +1030,8 @@
             "name": {
               "type": "string"
             },
-            "sku": {
-              "type": "object"
+            "planPricing": {
+              "type": "string"
             },
             "tags": {
               "type": "object"
@@ -1043,19 +1040,25 @@
               "type": "bool"
             }
           },
+          "variables": {
+            "sku": {
+              "name": "[split(parameters('planPricing'), '_')[1]]",
+              "tier": "[split(parameters('planPricing'), '_')[0]]",
+              "capacity": "[if(parameters('zoneRedundant'), 3, 1)]"
+            }
+          },
           "resources": [
             {
               "type": "Microsoft.Web/serverfarms",
               "apiVersion": "2023-01-01",
               "name": "[parameters('name')]",
               "location": "[parameters('location')]",
-              "sku": "[parameters('sku')]",
+              "sku": "[variables('sku')]",
               "tags": "[if(contains(parameters('tags'), 'Microsoft.Web/serverfarms'), parameters('tags')['Microsoft.Web/serverfarms'], createObject())]",
               "properties": {
                 "maximumElasticWorkerCount": "[if(equals(parameters('hostingPlanType'), 'FunctionsPremium'), 20, 1)]",
                 "reserved": "[if(contains(parameters('functionAppKind'), 'linux'), true(), false())]",
-                "zoneRedundant": "[parameters('zoneRedundant')]",
-                "numberOfWorkers": "[if(parameters('zoneRedundant'), 3, null())]"
+                "zoneRedundant": "[parameters('zoneRedundant')]"
               }
             },
             {
@@ -1157,7 +1160,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.25.53.49325",
-              "templateHash": "2146923490991876404"
+              "templateHash": "17006194092224109592"
             }
           },
           "parameters": {
@@ -1233,12 +1236,8 @@
             "firstRuntimeVersion": "[split(parameters('runtimeVersion'), ' ')[0]]",
             "decimalRuntimeVersion": "[if(equals(parameters('runtimeVersion'), '.NET Framework 4.8'), '4.0', if(and(equals(parameters('runtimeStack'), 'dotnet'), equals(length(variables('firstRuntimeVersion')), 1)), format('{0}.0', variables('firstRuntimeVersion')), variables('firstRuntimeVersion')))]",
             "linuxRuntimeStack": "[if(contains(variables('functionsWorkerRuntime'), 'dotnet'), toUpper(variables('functionsWorkerRuntime')), if(equals(parameters('runtimeStack'), 'node'), 'Node', if(equals(parameters('runtimeStack'), 'powershell'), 'PowerShell', if(equals(parameters('runtimeStack'), 'python'), 'Python', if(equals(parameters('runtimeStack'), 'java'), 'Java', null())))))]",
-            "isolatedAppSettings": {
-              "WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED": "1"
-            },
-            "windowsAppSettings": {
-              "WEBSITE_NODE_DEFAULT_VERSION": "[format('~{0}', variables('decimalRuntimeVersion'))]"
-            },
+            "isolatedAppSettings": "[if(contains(variables('functionsWorkerRuntime'), 'isolated'), createArray(createObject('name', 'WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED', 'value', '1')), createArray())]",
+            "windowsAppSettings": "[if(equals(parameters('functionAppKind'), 'functionapp'), createArray(createObject('name', 'WEBSITE_NODE_DEFAULT_VERSION', 'value', format('~{0}', variables('decimalRuntimeVersion')))), createArray())]",
             "storagePrivateEndpoints": "[if(parameters('enableStoragePrivateEndpoints'), createArray(createObject('name', replace(replace(parameters('nameConvPrivEndpoints'), 'resourceName', parameters('storageAccountName')), 'service', 'blob'), 'privateDnsZoneId', parameters('storageBlobDnsZoneId'), 'service', 'blob'), createObject('name', replace(replace(parameters('nameConvPrivEndpoints'), 'resourceName', parameters('storageAccountName')), 'service', 'file'), 'privateDnsZoneId', parameters('storageFileDnsZoneId'), 'service', 'file'), createObject('name', replace(replace(parameters('nameConvPrivEndpoints'), 'resourceName', parameters('storageAccountName')), 'service', 'queue'), 'privateDnsZoneId', parameters('storageQueueDnsZoneId'), 'service', 'queue'), createObject('name', replace(replace(parameters('nameConvPrivEndpoints'), 'resourceName', parameters('storageAccountName')), 'service', 'table'), 'privateDnsZoneId', parameters('storageTableDnsZoneId'), 'service', 'table')), createArray())]"
           },
           "resources": [
@@ -1443,6 +1442,7 @@
                 "publicNetworkAccess": "[if(parameters('enablePublicAccess'), 'Enabled', 'Disabled')]",
                 "serverFarmId": "[if(not(empty(parameters('hostingPlanId'))), parameters('hostingPlanId'), null())]",
                 "siteConfig": {
+                  "appSettings": "[union(createArray(createObject('name', 'AzureWebJobsStorage', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value)), createObject('name', 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value)), createObject('name', 'WEBSITE_CONTENTSHARE', 'value', toLower(parameters('functionAppName'))), createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', variables('functionsWorkerRuntime'))), if(parameters('enableApplicationInsights'), createArray(createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').ConnectionString), createObject('name', 'APPINSIGHTS_INSTRUMENTATIONKEY', 'value', reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').InstrumentationKey)), createArray()), variables('isolatedAppSettings'), variables('windowsAppSettings'))]",
                   "linuxFxVersion": "[if(contains(parameters('functionAppKind'), 'linux'), format('{0}|{1}', variables('linuxRuntimeStack'), variables('decimalRuntimeVersion')), null())]",
                   "netFrameworkVersion": "[if(and(not(contains(parameters('functionAppKind'), 'linux')), contains(parameters('runtimeStack'), 'dotnet')), format('v{0}', variables('decimalRuntimeVersion')), null())]"
                 },
@@ -1450,17 +1450,9 @@
                 "vnetImagePullEnabled": "[if(parameters('enableStoragePrivateEndpoints'), true(), false())]",
                 "vnetContentShareEnabled": "[if(parameters('enableStoragePrivateEndpoints'), true(), false())]",
                 "vnetRouteAllEnabled": "[if(parameters('enableStoragePrivateEndpoints'), true(), false())]"
-              }
-            },
-            {
-              "type": "Microsoft.Web/sites/config",
-              "apiVersion": "2022-09-01",
-              "name": "[format('{0}/{1}', parameters('functionAppName'), 'appsettings')]",
-              "kind": "[parameters('functionAppKind')]",
-              "properties": "[if(contains(variables('functionsWorkerRuntime'), 'isolated'), union(if(parameters('enableApplicationInsights'), union(if(equals(parameters('functionAppKind'), 'functionapp'), union(createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime')), variables('windowsAppSettings')), createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime'))), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', if(parameters('enableApplicationInsights'), reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').ConnectionString, ''), 'APPINSIGHTS_INSTRUMENTATIONKEY', if(parameters('enableApplicationInsights'), reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').InstrumentationKey, ''))), if(equals(parameters('functionAppKind'), 'functionapp'), union(createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime')), variables('windowsAppSettings')), createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime')))), variables('isolatedAppSettings')), if(parameters('enableApplicationInsights'), union(if(equals(parameters('functionAppKind'), 'functionapp'), union(createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime')), variables('windowsAppSettings')), createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime'))), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', if(parameters('enableApplicationInsights'), reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').ConnectionString, ''), 'APPINSIGHTS_INSTRUMENTATIONKEY', if(parameters('enableApplicationInsights'), reference(resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName'))), '2020-02-02').InstrumentationKey, ''))), if(equals(parameters('functionAppKind'), 'functionapp'), union(createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime')), variables('windowsAppSettings')), createObject('AzureWebJobsStorage', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName'))), '2023-01-01').keys[0].value), 'WEBSITE_CONTENTSHARE', toLower(parameters('functionAppName')), 'FUNCTIONS_EXTENSION_VERSION', '~4', 'FUNCTIONS_WORKER_RUNTIME', variables('functionsWorkerRuntime')))))]",
+              },
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/components', format('{0}-insights', parameters('functionAppName')))]",
-                "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAccountName')))]"
               ]
             },

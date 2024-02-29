@@ -637,11 +637,19 @@
 							"label": "Private endpoints",
 							"elements": [
 								{
+									"name": "subscriptionsApi",
+									"type": "Microsoft.Solutions.ArmApiControl",
+									"request": {
+										"method": "GET",
+										"path": "/subscriptions?api-version=2022-12-01"
+									}
+								},
+								{
                                     "name": "privateDNSZonesApi",
                                     "type": "Microsoft.Solutions.ArmApiControl",
                                     "request": {
                                         "method": "GET",
-                                        "path": "[concat(steps('basics').resourceScope.subscription.id, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
+                                        "path": "[concat(steps('networking').privateEndpoints.privateDNSZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
                                     }
                                 },
 								{
@@ -663,6 +671,19 @@
 											"uri": "https://go.microsoft.com/fwlink/?linkid=2100445"
 										}
 									}
+								},
+								{
+									"name": "privateDNSZonesSubscription",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Private DNS Zones Subscription",
+									"placeholder": "",
+									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
+									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
+									"constraints": {
+										"allowedValues": "[map(steps('networking').privateEndpoints.subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"required": true
+									},
+									"visible": true
 								},
 								{
 									"name": "privateEndpointsGrid",
