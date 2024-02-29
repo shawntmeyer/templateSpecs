@@ -10,7 +10,7 @@
 					"label": "Basics",
 					"elements": [
 						{
-							"name": "textBlock1",
+							"name": "introTextBlock",
 							"type": "Microsoft.Common.TextBlock",
 							"visible": true,
 							"options": {
@@ -22,11 +22,11 @@
 							}
 						},
 						{
-							"name": "textBlock2",
+							"name": "cafTextBlock",
 							"type": "Microsoft.Common.TextBlock",
 							"visible": true,
 							"options": {
-								"text": "The Cloud Adoption Framework (CAF) specifies some best practices when naming resources. Some customers have chosen to reverse the best practice order of naming elements by placing the resource type at the end of the naming convention. Select 'Yes' below to do the same.",
+								"text": "The Cloud Adoption Framework (CAF) specifies some best practices when naming resources. Some customers have chosen to reverse this order of naming elements by placing the resource type at the end of the naming convention. This solution allows you to select the name of most resources, but there are several that are automatically named including Private Endpoints. Select 'Yes' below to ensure the automatically named resources are named with this reverse convention or leave it set to 'No' to follow the CAF.",
 								"link": {
 									"label": "Learn more",
 									"uri": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/resource-naming"
@@ -606,7 +606,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Virtual Network Name",
 									"subLabel": "",
-									"defaultValue": "[concat('vnet-', steps('basics').hosting.hostingPlanName)]",
+									"placeholder": "vnet-functionapps-<env>-<region>",
 									"toolTip": "Specify the name of the new Virtual Network to create for Function App Virtual Network Integration. This vnet and associated resources will be deployed to the resource group selected in the 'Hosting Plan' section of the 'Basics' blade.",
 									"constraints": {
 										"required": false,
@@ -619,7 +619,7 @@
 									"type": "Microsoft.Common.ResourceGroupSelector",
 									"name": "networkingResourceGroup",
 									"allowedMode": "Both",
-									"placeholder": "<hosting plan rg name> or rg-app-service-plans-networking-<env>-<region>",
+									"placeholder": "<hosting plan rg name> or rg-functionapps-networking-<env>-<region>",
 									"required": false,
 									"label": "Networking Resource Group",
 									"defaultValue": "[steps('basics').hosting.hostingPlanResourceGroup.value.name]",
@@ -676,7 +676,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Inbound subnet name",
 									"placeholder": "",
-									"defaultValue": "func-apps-inbound",
+									"defaultValue": "snet-functionapps-inbound",
 									"toolTip": "Provide the name of the inbound subnet",
 									"constraints": {
 										"required": true,
@@ -849,7 +849,7 @@
 								{
 									"name": "noSNetsWithDelegationErrorBox",
 									"type": "Microsoft.Common.InfoBox",
-									"visible": "[and(steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('basics').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => parse(concat('{\"label\":\"', item.name, '\"}')))))]",
+									"visible": "[and(steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('basics').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => item.name)))]",
 									"options": {
 										"icon": "Error",
 										"text": "There are no subnets in the virtual network chosen above that are delegated to the 'Microsoft.Web/serverFarms' service and are not already linked to an App Service Plan. You must either select another network, select the option to create a new virtual network, or create a subnet in the chosen virtual network, delegate it to 'Microsoft.Web/serverFarms', and then restart this deployment."

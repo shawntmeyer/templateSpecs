@@ -26,31 +26,55 @@ var firstRuntimeVersion = split(runtimeVersion, ' ')[0]
 var decimalRuntimeVersion = runtimeVersion == '.NET Framework 4.8' ? '4.0' : runtimeStack == 'dotnet' && length(firstRuntimeVersion) == 1 ? '${firstRuntimeVersion}.0' : firstRuntimeVersion
 var linuxRuntimeStack = contains(functionsWorkerRuntime, 'dotnet') ? toUpper(functionsWorkerRuntime) : runtimeStack == 'node' ? 'Node' : runtimeStack == 'powershell' ? 'PowerShell' : runtimeStack == 'python' ? 'Python' : runtimeStack == 'java' ? 'Java' : null
 
-var commonAppSettings = {
+var commonAppSettings = [
+  {
+    name: 'AzureWebJobsStorage'
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+  }
+  {
+    name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+  }
+  {
+    name: 'WEBSITE_CONTENTSHARE'
+    value: toLower(functionAppName)
+  }
+  {
+    name: 'FUNCTIONS_EXTENSION_VERSION'
+    value: '~4'
+  }
+  {
+    name: 'FUNCTIONS_WORKER_RUNTIME'
+    value: functionsWorkerRuntime
+  }
+]
 
-  AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  WEBSITE_CONTENTSHARE: toLower(functionAppName)
-  FUNCTIONS_EXTENSION_VERSION: '~4'
-  FUNCTIONS_WORKER_RUNTIME: functionsWorkerRuntime
-}
+var appInsightsAppSettings = enableApplicationInsights ? [
+  {
+    name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+    value: applicationInsights.properties.ConnectionString
+  }
+  {
+    name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+    value: applicationInsights.properties.InstrumentationKey
+  }
+] : []
 
-var appInsightsAppSettings = {
-  APPLICATIONINSIGHTS_CONNECTION_STRING: enableApplicationInsights ? applicationInsights.properties.ConnectionString: ''
-  APPINSIGHTS_INSTRUMENTATIONKEY: enableApplicationInsights ? applicationInsights.properties.InstrumentationKey : ''
-}
+var isolatedAppSettings = contains(functionsWorkerRuntime, 'isolated') ? [
+  {
+    name: 'WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED'
+    value: '1'
+  }
+] : []
 
-var isolatedAppSettings = {
-  WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED: '1'
-}
+var windowsAppSettings = functionAppKind == 'functionapp' ? [
+  {
+    name: 'WEBSITE_NODE_DEFAULT_VERSION'
+    value: '~${decimalRuntimeVersion}'
+  }
+] : []
 
-var windowsAppSettings = {
-  WEBSITE_NODE_DEFAULT_VERSION: '~${decimalRuntimeVersion}'
-}
-
-var appSettingsTemp1 = functionAppKind == 'functionapp' ? union(commonAppSettings, windowsAppSettings) : commonAppSettings
-var appSettingsTemp2 = enableApplicationInsights ? union(appSettingsTemp1, appInsightsAppSettings) : appSettingsTemp1
-var appSettings = contains(functionsWorkerRuntime, 'isolated') ? union(appSettingsTemp2, isolatedAppSettings) : appSettingsTemp2
+var appSettings = union(commonAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings)
 
 var storagePrivateEndpoints = enableStoragePrivateEndpoints ? [
   {
@@ -227,6 +251,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
     serverFarmId: !empty(hostingPlanId) ? hostingPlanId : null
     siteConfig: {
+      appSettings: appSettings
       linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
       netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${decimalRuntimeVersion}' : null
     }
@@ -235,13 +260,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     vnetContentShareEnabled: enableStoragePrivateEndpoints ? true : false
     vnetRouteAllEnabled: enableStoragePrivateEndpoints ? true : false
   }
-}
-
-resource functionAppSettings 'Microsoft.Web/sites/config@2022-09-01' = {
-  name: 'appsettings'
-  kind: functionAppKind
-  parent: functionApp
-  properties: appSettings
 }
 
 resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(enableInboundPrivateEndpoint) {

@@ -19,23 +19,53 @@ param storageTableDnsZoneId string
 param tags object
 
 
-var commonAppSettings = {
-  APP_KIND: 'workflowApp'  
-  AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  AzureFunctionsJobHost__extensionBundle__id: 'Microsoft.Azure.Functions.ExtensionBundle.Workflows'
-  AzureFunctionsJobHost__extensionBundle__version: '[1.*, 2.0.0)'
-  FUNCTIONS_EXTENSION_VERSION: '~4'
-  FUNCTIONS_WORKER_RUNTIME: 'node'
-  WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  WEBSITE_CONTENTSHARE: toLower(logicAppName)
-  WEBSITE_NODE_DEFAULT_VERSION: '~18'
-}
+var commonAppSettings = [
+  {
+    name: 'APP_KIND'
+    value: 'workflowapp'
+  }
+  {
+    name: 'AzureWebJobsStorage'
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+  }
+  {
+    name: 'AzureFunctionsJobHost__extensionBundle__id'
+    value: 'Microsoft.Azure.Functions.ExtensionBundle.Workflows'
+  }  
+  {
+    name: ' AzureFunctionsJobHost__extensionBundle__version'
+    value: '[1.*, 2.0.0)'
+  }
+  {
+    name: 'FUNCTIONS_EXTENSION_VERSION'
+    value: '~4'
+  }
+  {
+    name: 'FUNCTIONS_WORKER_RUNTIME'
+    value: 'node'
+  }
+  {
+    name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+  }
+  {
+    name: 'WEBSITE_CONTENTSHARE'
+    value: toLower(logicAppName)
+  }
+  {
+    name: 'WEBSITE_NODE_DEFAULT_VERSION'
+    value: '~18'
+  }
+]
 
-var appApplicationInsights = {
-  APPLICATIONINSIGHTS_CONNECTION_STRING: enableApplicationInsights ? applicationInsights.properties.ConnectionString : null
-}
+var appApplicationInsights = enableApplicationInsights ? [
+  {
+    name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+    value: applicationInsights.properties.ConnectionString
+  }
+] : []
 
-var appSettings = enableApplicationInsights ? union(commonAppSettings, appApplicationInsights) : commonAppSettings
+var appSettings = union(commonAppSettings, appApplicationInsights)
 
 var storagePrivateEndpoints = enableStoragePrivateEndpoints ? [
   {
@@ -172,7 +202,7 @@ resource storageAccount_diagnosticSettings 'Microsoft.Insights/diagnosticSetting
 }
 
 resource storageAccount_blob_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(!empty(logAnalyticsWorkspaceId)) {
-  name: '${storageAccountName}-logs'
+  name: '${storageAccountName}-blob-diagnosticSettings'
   scope: storageAccount::blobServices
   properties: {
     workspaceId: logAnalyticsWorkspaceId
@@ -220,18 +250,13 @@ resource logicApp 'Microsoft.Web/sites@2023-01-01' = {
       ftpsState: 'FtpsOnly'
       netFrameworkVersion: 'v6.0'
       use32BitWorkerProcess: false
+      appSettings: appSettings
     }
     virtualNetworkSubnetId: !empty(logicAppOutboundSubnetId) ? logicAppOutboundSubnetId : null
     vnetImagePullEnabled: enableStoragePrivateEndpoints ? true : false
     vnetContentShareEnabled: enableStoragePrivateEndpoints ? true : false
     vnetRouteAllEnabled: enableStoragePrivateEndpoints ? true : false
   }
-}
-
-resource logicAppSettings 'Microsoft.Web/sites/config@2022-09-01' = {
-  name: 'appsettings'
-  parent: logicApp
-  properties: appSettings
 }
 
 resource logicApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(enableInboundPrivateEndpoint) {
