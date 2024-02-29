@@ -9,6 +9,18 @@
                     "name": "basics",
                     "label": "Basics",
                     "elements": [
+						{
+							"name": "introTextBlock",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": true,
+							"options": {
+								"text": "Azure Storage is a Microsoft-managed service providing cloud storage that is highly available, secure, durable, scalable, and redundant. Azure Storage includes Azure Blobs (objects), Azure Data Lake Storage Gen2, Azure Files, Azure Queues, and Azure Tables. The cost of your storage account depends on the usage and the options you choose below.",
+								"link": {
+									"label": "Learn more about Azure storage accounts",
+									"uri": "https://go.microsoft.com/fwlink/?linkid=2163008"
+								}
+							}
+						},
                         {
                             "name": "resourceScope",
                             "type": "Microsoft.Common.ResourceScope",
