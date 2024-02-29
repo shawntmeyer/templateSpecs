@@ -1,56 +1,41 @@
-param functionAppName string
-param location string
-param tags object
 param enableApplicationInsights bool
-param nameConvPrivEndpoints string
-param logAnalyticsWorkspaceId string
-param functionAppKind string
 param enableInboundPrivateEndpoint bool
 param enableStoragePrivateEndpoints bool
 param enablePublicAccess bool
-param functionAppInboundSubnetId string
-param functionAppOutboundSubnetId string
-param runtimeVersion string
-param runtimeStack string
-param hostingPlanId string
+param logicAppName string
+param logicAppInboundSubnetId string
+param logicAppOutboundSubnetId string
+param logicAppPrivateDnsZoneId string
+param location string
+param logAnalyticsWorkspaceId string
+param nameConvPrivEndpoints string
+param planId string
 param storageAccountName string
+param storageAccountPrivateEndpointSubnetId string
 param storageBlobDnsZoneId string
 param storageFileDnsZoneId string
 param storageQueueDnsZoneId string
 param storageTableDnsZoneId string
-param functionAppPrivateDnsZoneId string
-param storageAccountPrivateEndpointSubnetId string
+param tags object
 
-var functionsWorkerRuntime = runtimeVersion == '.NET Framework 4.8' || contains(runtimeVersion, 'Isolated') ? '${runtimeStack}-isolated' : runtimeStack
-var firstRuntimeVersion = split(runtimeVersion, ' ')[0]
-var decimalRuntimeVersion = runtimeVersion == '.NET Framework 4.8' ? '4.0' : runtimeStack == 'dotnet' && length(firstRuntimeVersion) == 1 ? '${firstRuntimeVersion}.0' : firstRuntimeVersion
-var linuxRuntimeStack = contains(functionsWorkerRuntime, 'dotnet') ? toUpper(functionsWorkerRuntime) : runtimeStack == 'node' ? 'Node' : runtimeStack == 'powershell' ? 'PowerShell' : runtimeStack == 'python' ? 'Python' : runtimeStack == 'java' ? 'Java' : null
 
 var commonAppSettings = {
-
+  APP_KIND: 'workflowapp'  
   AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-  WEBSITE_CONTENTSHARE: toLower(functionAppName)
+  AzureFunctionsJobHost__extensionBundle__id: 'Microsoft.Azure.Functions.ExtensionBundle.Workflows'
+  AzureFunctionsJobHost__extensionBundle__version: '[1.*, 2.0.0)'
   FUNCTIONS_EXTENSION_VERSION: '~4'
-  FUNCTIONS_WORKER_RUNTIME: functionsWorkerRuntime
+  FUNCTIONS_WORKER_RUNTIME: 'node'
+  WEBSITE_CONTENTAZUREFILECONNECTIONSTRING: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+  WEBSITE_CONTENTSHARE: toLower(logicAppName)
+  WEBSITE_NODE_DEFAULT_VERSION: '~18'
 }
 
-var appInsightsAppSettings = {
-  APPLICATIONINSIGHTS_CONNECTION_STRING: enableApplicationInsights ? applicationInsights.properties.ConnectionString: ''
-  APPINSIGHTS_INSTRUMENTATIONKEY: enableApplicationInsights ? applicationInsights.properties.InstrumentationKey : ''
+var appApplicationInsights = {
+  APPLICATIONINSIGHTS_CONNECTION_STRING: enableApplicationInsights ? applicationInsights.properties.ConnectionString : null
 }
 
-var isolatedAppSettings = {
-  WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED: '1'
-}
-
-var windowsAppSettings = {
-  WEBSITE_NODE_DEFAULT_VERSION: '~${decimalRuntimeVersion}'
-}
-
-var appSettingsTemp1 = functionAppKind == 'functionapp' ? union(commonAppSettings, windowsAppSettings) : commonAppSettings
-var appSettingsTemp2 = enableApplicationInsights ? union(appSettingsTemp1, appInsightsAppSettings) : appSettingsTemp1
-var appSettings = contains(functionsWorkerRuntime, 'isolated') ? union(appSettingsTemp2, isolatedAppSettings) : appSettingsTemp2
+var appSettings = enableApplicationInsights ? union(commonAppSettings, appApplicationInsights) : commonAppSettings
 
 var storagePrivateEndpoints = enableStoragePrivateEndpoints ? [
   {
@@ -128,7 +113,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   resource fileServices 'fileServices' = {
     name: 'default'
     resource fileShare 'shares' = {
-      name: toLower(functionAppName)
+      name: toLower(logicAppName)
       properties: {
         enabledProtocols: 'SMB'
         shareQuota: 5120
@@ -207,7 +192,7 @@ resource storageAccount_blob_diagnosticSettings 'Microsoft.Insights/diagnosticSe
 }
 
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if(enableApplicationInsights) {
-  name: '${functionAppName}-insights'
+  name: '${logicAppName}-insights'
   kind: 'web'
   location: location
   properties: {
@@ -217,74 +202,77 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if(ena
   tags: contains(tags, 'Microsoft.Insights/components') ? tags['Microsoft.Insights/components'] : {}
 }
 
-resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
-  name: functionAppName
-  kind: functionAppKind
+resource logicApp 'Microsoft.Web/sites@2023-01-01' = {
+  name: logicAppName
+  kind: 'functionapp,workflowapp'
+  identity: {
+    type: 'SystemAssigned'
+  }
   location: location
   tags: contains(tags, 'Microsoft.Web/sites') ? tags['Microsoft.Web/sites'] : {}
   properties: {
     httpsOnly: true
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
-    serverFarmId: !empty(hostingPlanId) ? hostingPlanId : null
+    serverFarmId: !empty(planId) ? planId : null
     siteConfig: {
-      linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
-      netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${decimalRuntimeVersion}' : null
+      ftpsState: 'FtpsOnly'
+      netFrameworkVersion: 'v6.0'
+      use32BitWorkerProcess: false
     }
-    virtualNetworkSubnetId: !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : null
+    virtualNetworkSubnetId: !empty(logicAppOutboundSubnetId) ? logicAppOutboundSubnetId : null
     vnetImagePullEnabled: enableStoragePrivateEndpoints ? true : false
     vnetContentShareEnabled: enableStoragePrivateEndpoints ? true : false
     vnetRouteAllEnabled: enableStoragePrivateEndpoints ? true : false
   }
 }
 
-resource functionAppSettings 'Microsoft.Web/sites/config@2022-09-01' = {
+resource logicAppSettings 'Microsoft.Web/sites/config@2022-09-01' = {
   name: 'appsettings'
-  kind: functionAppKind
-  parent: functionApp
+  parent: logicApp
   properties: appSettings
 }
 
-resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(enableInboundPrivateEndpoint) {
-  name: replace(replace(nameConvPrivEndpoints, 'resourceName', functionAppName), 'service', 'sites')
+resource logicApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if(enableInboundPrivateEndpoint) {
+  name: replace(replace(nameConvPrivEndpoints, 'resourceName', logicAppName), 'service', 'sites')
   location: location
   properties: {
     privateLinkServiceConnections: [
       {
-        name: 'pe-${functionAppName}-sites-connection'
+        name: 'pe-${logicAppName}-sites-connection'
         properties: {
-          privateLinkServiceId: functionApp.id
+          privateLinkServiceId: logicApp.id
           groupIds: ['sites']          
         }
       }
     ]
     subnet: {
-      id: !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : null
+      id: !empty(logicAppInboundSubnetId) ? logicAppInboundSubnetId : null
     }      
   }
   tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : {}
 }
 
-resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if(enableInboundPrivateEndpoint) {
-  name: '${functionApp_PrivateEndpoint.name}-group'
-  parent: functionApp_PrivateEndpoint
+resource logicApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if(enableInboundPrivateEndpoint) {
+  name: '${logicApp_PrivateEndpoint.name}-group'
+  parent: logicApp_PrivateEndpoint
   properties: {
     privateDnsZoneConfigs: [
       {
-        name: !empty(functionAppPrivateDnsZoneId) ? '${last(split(functionAppPrivateDnsZoneId, '/'))}-config' : null
+        name: !empty(logicAppPrivateDnsZoneId) ? '${last(split(logicAppPrivateDnsZoneId, '/'))}-config' : null
         properties: {
-          privateDnsZoneId: enablePublicAccess || empty(functionAppPrivateDnsZoneId) ? null : functionAppPrivateDnsZoneId
+          privateDnsZoneId: enablePublicAccess || empty(logicAppPrivateDnsZoneId) ? null : logicAppPrivateDnsZoneId
         }
       }
     ]
   }
 }
 
-resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
-  name: '${functionAppName}-diagnosticSettings'
+resource logicApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
+  name: '${logicAppName}-diagnosticSettings'
   properties: {
     logs: [
       {
-        category: 'FunctionAppLogs'
+        category: 'logicAppLogs'
         enabled: true
       }
     ]
@@ -296,5 +284,5 @@ resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@
     ]
     workspaceId: logAnalyticsWorkspaceId
   }
-  scope: functionApp
+  scope: logicApp
 }
