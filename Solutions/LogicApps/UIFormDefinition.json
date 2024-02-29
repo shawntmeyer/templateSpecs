@@ -801,7 +801,7 @@
 								{
 									"name": "noSNetsWithDelegationErrorBox",
 									"type": "Microsoft.Common.InfoBox",
-									"visible": "[and(steps('basics').plan.newPlan, equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('basics').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => item.name)))]",
+									"visible": "[and(steps('basics').plan.newPlan, not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => item.name)))]",
 									"options": {
 										"icon": "Error",
 										"text": "There are no subnets in the virtual network chosen above that are delegated to the 'Microsoft.Web/serverFarms' service and are not already linked to an App Service Plan. You must either select another network, select the option to create a new virtual network, or create a subnet in the chosen virtual network, delegate it to 'Microsoft.Web/serverFarms', and then restart this deployment."
