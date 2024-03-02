@@ -271,7 +271,7 @@ module workflow 'modules/workflow.bicep' = if(hostingPlanType == 'Consumption') 
 }
 
 module networking 'modules/networking.bicep' = if(hostingPlanType == 'Standard' && deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
-  name: 'networking-${timestamp}'
+  name: 'networking-resources-${timestamp}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
     location: location
