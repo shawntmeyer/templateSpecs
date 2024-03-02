@@ -205,7 +205,7 @@
 									"toolTip": "Select the App Service Plan that will host the Function App.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), equals(item.sku.tier, 'WorkflowStandard'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), equals(item.sku.tier, 'WorkflowStandard'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource Group: ', first(skip(split(item.id, '/'), 4)) , ', Sku: ', item.sku.name, ', ZoneRedundant: ', if(greater(item.properties.numberOfWorkers, 1), 'Yes', 'No'), '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},
@@ -324,7 +324,7 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
+								"path": "[concat(steps('basics').scope.subscription.id, '/providers/Microsoft.Storage/storageAccounts?api-version=2021-04-01')]"
 							}
 						},
 						{
@@ -386,7 +386,8 @@
 										"value": false
 									}
 								]
-							}
+							},
+							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Standard')]"
 						},
 						{
 							"name": "name",
@@ -410,12 +411,24 @@
 							"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'Standard'), steps('storage').newStorageAccount)]"
 						},
 						{
+							"name": "existingStorageTextBlock",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'Standard'), equals(steps('storage').newStorageAccount, false))]",
+							"options": {
+								"text": "The list of storage accounts below are filtered to only include those in the region selected on the 'Basics' pane and general purpose V2 types.",
+								"link": {
+									"label": "Learn more",
+									"uri": "https://go.microsoft.com/fwlink/?linkid=2249771"
+								}
+							}
+						},
+						{
 							"name": "exStorageNewHostPlanZRSInfoBox",
 							"type": "Microsoft.Common.InfoBox",
 							"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'Standard'), steps('basics').hosting.zoneRedundant, equals(steps('storage').newStorageAccount, false))]",
 							"options": {
 								"icon": "Info",
-								"text": "Since you chose to create a new Host Plan with Zone Redundancy, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
+								"text": "In addition, since you chose to create a zone redundant Host Plan, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
 								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/storage-considerations?tabs=azure-cli#storage-account-requirements"
 							}
 						},
@@ -425,7 +438,7 @@
 							"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'Standard'), equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(steps('storage').newStorageAccount, false))]",
 							"options": {
 								"icon": "Info",
-								"text": "Since you chose an existing hosting plan with Zone Redundancy, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
+								"text": "In addition, since you chose an existing hosting plan that is zone redundant, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
 								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/storage-considerations?tabs=azure-cli#storage-account-requirements"
 							}
 						},
@@ -443,10 +456,11 @@
 							"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'Standard'), equals(steps('storage').newStorageAccount, false))]"
 						},
 						{
-							"name": "notApplicableTextBlock",
-							"type": "Microsoft.Common.TextBlock",
+							"name": "notApplicableInfoBox",
+							"type": "Microsoft.Common.InfoBox",
 							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
 							"options": {
+								"icon": "Info",
 								"text": "When creating a logic app with a Consumption based plan, no storage accounts are deployed."
 							}
 						}
@@ -665,7 +679,7 @@
 							"label": "Inbound access",
 							"elements": [
 								{
-									"name": "infoBox1",
+									"name": "InfoBox1",
 									"type": "Microsoft.Common.InfoBox",
 									"visible": "[steps('networking').publicAccess]",
 									"options": {
@@ -1059,10 +1073,11 @@
 							"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'Standard'), steps('networking').networkInjection, steps('networking').outboundAccess.enableVnetIntegration)]"
 						},
 						{
-							"name": "notApplicableTextBlock",
-							"type": "Microsoft.Common.TextBlock",
+							"name": "notApplicableInfoBox",
+							"type": "Microsoft.Common.InfoBox",
 							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
 							"options": {
+								"icon": "Info",
 								"text": "When creating a logic app with a Consumption based plan, no networking resources are deployed."
 							}
 						}
@@ -1155,10 +1170,11 @@
 							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Standard')]"
 						},
 						{
-							"name": "notApplicableTextBlock",
-							"type": "Microsoft.Common.TextBlock",
+							"name": "notApplicableInfoBox",
+							"type": "Microsoft.Common.InfoBox",
 							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
 							"options": {
+								"icon": "Info",
 								"text": "When creating a logic app with a Consumption based plan, no monitoring resources are deployed."
 							}
 						}

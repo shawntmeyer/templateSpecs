@@ -380,7 +380,7 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/storageAccounts?api-version=2021-04-01')]"
+								"path": "[concat(steps('basics').scope.subscription.id, '/providers/Microsoft.Storage/storageAccounts?api-version=2021-04-01')]"
 							}
 						},
 						{
@@ -424,7 +424,6 @@
 								}
 							}
 						},
-
 						{
 							"name": "newStorageAccount",
 							"type": "Microsoft.Common.OptionsGroup",
@@ -467,22 +466,34 @@
 							"visible": "[steps('storage').newStorageAccount]"
 						},
 						{
+							"name": "existingStorageTextBlock",
+							"type": "Microsoft.Common.TextBlock",
+							"visible": "[equals(steps('storage').newStorageAccount, false)]",
+							"options": {
+								"text": "The list of storage accounts below are filtered to only include those in the region selected on the 'Basics' pane and general purpose V2 types.",
+								"link": {
+									"label": "Learn more",
+									"uri": "https://go.microsoft.com/fwlink/?linkid=2249771"
+								}
+							}
+						},
+						{
 							"name": "exStorageNewHostPlanZRSInfoBox",
 							"type": "Microsoft.Common.InfoBox",
 							"visible": "[and(steps('basics').hosting.zoneRedundant, equals(steps('storage').newStorageAccount, false))]",
 							"options": {
 								"icon": "Info",
-								"text": "Since you chose to create a new Host Plan with Zone Redundancy, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
+								"text": "In addition, since you chose to create a zone redundant Host Plan, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
 								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/storage-considerations?tabs=azure-cli#storage-account-requirements"
 							}
 						},
 						{
 							"name": "exStorageExHostPlanZRSInfoBox",
 							"type": "Microsoft.Common.InfoBox",
-							"visible": "[and( equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(steps('storage').newStorageAccount, false))]",
+							"visible": "[and(equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(steps('storage').newStorageAccount, false))]",
 							"options": {
 								"icon": "Info",
-								"text": "Since you chose an existing hosting plan with Zone Redundancy, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
+								"text": "In addition, since you chose an existing hosting plan that is zone redundant, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
 								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/storage-considerations?tabs=azure-cli#storage-account-requirements"
 							}
 						},
