@@ -80,8 +80,14 @@ param hostingPlanPricing string = 'ElasticPremium_EP1'
 @description('Optional. Determines if the hosting plan is zone redundant. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 param hostingPlanZoneRedundant bool = false
 
-@description('Required. The name of the storage account used by the function App.')
-param storageAccountName string
+@description('Optional. Determines whether an existing storage account is used or a new one is deployed. If set to true, the "storageAccountName" parameter must be provided. If set to false, the "storageAccountId" parameter must be provided.')
+param deployStorageAccount bool = true
+
+@description('Conditional. The resource Id of the existing storage account to be used with the logic app.')
+param storageAccountId string = ''
+
+@description('Conditional. The name of the storage account used by the function App. Required if "deployStorageAccount" is set to true.')
+param storageAccountName string = ''
 
 // Monitoring
 
@@ -206,7 +212,8 @@ param timestamp string = utcNow('yyyyMMddhhmmss')
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 
-var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
+var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}-uniqueString' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}-uniqueString'
+var storageAccountSku = deployHostingPlan ? ( hostingPlanZoneRedundant ? 'Standard_ZRS' : 'Standard_LRS' ) : ( existingHostingPlan.properties.numberOfWorkers > 1 ? 'Standard_ZRS' : 'Standard_LRS' )
 
 var subnetOutbound = enableVnetIntegration ? [
   {
@@ -264,6 +271,7 @@ var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
 
 // ensure that no resource Group Names are blank for deployments
 var resourceGroupNameFunctionApp = functionAppResourceGroupName
+var resourceGroupNameStorage = !empty(storageAccountId) && !deployStorageAccount ? split(storageAccountId, '/')[4] : resourceGroupNameFunctionApp
 var resourceGroupNameHostingPlan = !empty(hostingPlanResourceGroupName) ? hostingPlanResourceGroupName : resourceGroupNameFunctionApp
 var resourceGroupNameNetworking = !empty(networkingResourceGroupName) ? networkingResourceGroupName : resourceGroupNameFunctionApp
 
@@ -279,7 +287,7 @@ resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGrou
 }]
 
 module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
-  name: 'networking-${timestamp}'
+  name: 'networking-resources-${timestamp}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
     location: location
@@ -313,8 +321,35 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   ]
 }
 
-module functionAppResources 'modules/functionAppResources.bicep' = {
-  name: 'functionAppResources-${timestamp}'
+resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(hostingPlanType == 'Standard' && !deployHostingPlan && !empty(hostingPlanId)) {
+  name: last(split(hostingPlanId, '/'))
+  scope: resourceGroup(split(hostingPlanId, '/')[2], split(hostingPlanId, '/')[4])
+}
+
+module storageResources 'modules/storage.bicep' = {
+  name: 'storage-resources-${timestamp}'
+  scope: resourceGroup(resourceGroupNameStorage)
+  params: {
+    location: location
+    deployStorageAccount: deployStorageAccount
+    enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
+    fileShareName: toLower(functionAppName)
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
+    nameConvPrivEndpoints: nameConvPrivEndpoints
+    storageAccountId: storageAccountId
+    storageAccountName: storageAccountName
+    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
+    storageAccountSku: storageAccountSku 
+    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
+    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
+    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
+    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
+    tags: tags
+  }
+}
+
+module functionAppResources 'modules/functionApp.bicep' = {
+  name: 'functionApp-resources-${timestamp}'
   scope: resourceGroup(functionAppResourceGroupName)
   params: {
     location: location
@@ -324,21 +359,16 @@ module functionAppResources 'modules/functionAppResources.bicep' = {
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     functionAppKind: functionAppKind
     functionAppName: functionAppName
+    functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
+    functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : ''    
+    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
     hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' ))
+    nameConvPrivEndpoints: nameConvPrivEndpoints
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion
-    storageAccountName: storageAccountName   
-    nameConvPrivEndpoints: nameConvPrivEndpoints
-    functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
-    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
-    functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : '' 
-    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
-    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
-    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
-    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
-    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
+    storageAccountResourceId: storageResources.outputs.storageAccountResourceId   
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-    tags: tags 
+    tags: tags
   }
   dependsOn: [
     rgs

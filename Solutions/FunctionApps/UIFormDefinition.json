@@ -256,7 +256,7 @@
 										"method": "GET",
 										"path": "[concat(steps('basics').scope.subscription.id, '/providers/Microsoft.Web/serverfarms?api-version=2022-03-01')]"
 									}
-								},
+								},								
 								{
 									"name": "existingServerFarmInfoBox",
 									"type": "Microsoft.Common.InfoBox",
@@ -274,7 +274,7 @@
 									"toolTip": "Select the App Service Plan that will host the Function App.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"location: ', item.location, ' kind: ', item.kind, ' sku: ', item.sku.tier, ' ', item.sku.name, '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource Group: ', first(skip(split(item.id, '/'), 4)) , ', Sku: ', item.sku.name, ', ZoneRedundant: ', if(greater(item.properties.numberOfWorkers, 1), 'Yes', 'No'), '\",\"value\":\"', item.id, '\"}')))]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},
@@ -291,7 +291,7 @@
 									"name": "hostingPlanName",
 									"type": "Microsoft.Common.TextBox",
 									"label": "App Service Plan name",
-									"placeholder": "asp-<win/lnx>-<sku>-<env>-<region>",
+									"placeholder": "asp-func-app-<win/lnx>-<sku>-<env>-<region>",
 									"toolTip": "The name of the app service plan used by the function App.",
 									"constraints": {
 										"required": true,
@@ -380,7 +380,15 @@
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/resourceTypes?api-version=2021-04-01')]"
+								"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Storage/storageAccounts?api-version=2021-04-01')]"
+							}
+						},
+						{
+							"name": "existingServerFarmApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').hosting.existingHostingPlanId, '?api-version=2022-03-01')]"
 							}
 						},
 						{
@@ -416,6 +424,27 @@
 								}
 							}
 						},
+
+						{
+							"name": "newStorageAccount",
+							"type": "Microsoft.Common.OptionsGroup",
+							"label": "Create a new storage account",
+							"defaultValue": "Yes",
+							"toolTip": "Select 'Yes' to create a new storage account or 'No' to select an existing storage from the region where the function app will be deployed.",
+							"constraints": {
+								"required": false,
+								"allowedValues": [
+									{
+										"label": "Yes",
+										"value": true
+									},
+									{
+										"label": "No, use an existing storage account",
+										"value": false
+									}
+								]
+							}
+						},
 						{
 							"name": "name",
 							"type": "Microsoft.Common.TextBox",
@@ -435,7 +464,40 @@
 									}
 								]
 							},
-							"visible": true
+							"visible": "[steps('storage').newStorageAccount]"
+						},
+						{
+							"name": "exStorageNewHostPlanZRSInfoBox",
+							"type": "Microsoft.Common.InfoBox",
+							"visible": "[and(steps('basics').hosting.zoneRedundant, equals(steps('storage').newStorageAccount, false))]",
+							"options": {
+								"icon": "Info",
+								"text": "Since you chose to create a new Host Plan with Zone Redundancy, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
+								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/storage-considerations?tabs=azure-cli#storage-account-requirements"
+							}
+						},
+						{
+							"name": "exStorageExHostPlanZRSInfoBox",
+							"type": "Microsoft.Common.InfoBox",
+							"visible": "[and( equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(steps('storage').newStorageAccount, false))]",
+							"options": {
+								"icon": "Info",
+								"text": "Since you chose an existing hosting plan with Zone Redundancy, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
+								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/storage-considerations?tabs=azure-cli#storage-account-requirements"
+							}
+						},
+						{
+							"name": "storageAccountId",
+							"type": "Microsoft.Common.DropDown",
+							"label": "Existing Storage Account",
+							"placeholder": "Select Storage Account",
+							"multiLine": true,
+							"toolTip": "Select an existing storage account to use for the function app.",
+							"constraints": {
+								"allowedValues": "[map(filter(steps('storage').storageApi.value, (sa) => and(equals(sa.location, steps('basics').scope.location.name), equals(sa.kind, 'StorageV2'), if(steps('basics').hosting.newServerFarm, if(steps('basics').hosting.zoneRedundant, equals(sa.sku.name, 'Standard_ZRS'), true), if(equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(sa.sku.name, 'Standard_ZRS'), true)))), (sa) => parse(concat('{\"label\":\"', sa.name, '\",\"description\":\"Resource Group: ', first(skip(split(sa.id, '/'), 4)), ' , Sku: ', sa.sku.name,'\",\"value\":\"', sa.id, '\"}')))]",
+								"required": true
+							},
+							"visible": "[equals(steps('storage').newStorageAccount, false)]"
 						}
 					]
 				},
@@ -786,7 +848,7 @@
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "Enable VNet Integration",
 									"defaultValue": "Yes",
-									"toolTip": "Choose 'Yes' to  enables your app to make calls into a virtual network.",
+									"toolTip": "Choose 'Yes' to  enable your app to make calls into a virtual network.",
 									"constraints": {
 										"allowedValues": [
 											{
@@ -847,7 +909,7 @@
 									}
 								},
 								{
-									"name": "noSNetsWithDelegationErrorBox",
+									"name": "noSnetsWithDelegationErrorBox",
 									"type": "Microsoft.Common.InfoBox",
 									"visible": "[and(steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => item.name)))]",
 									"options": {
@@ -1174,7 +1236,9 @@
 				"hostingPlanResourceGroupName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanResourceGroup.value.name, '')]",
 				"hostingPlanPricing": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanPricing, 'NotApplicable')]",
 				"hostingPlanZoneRedundant": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.zoneRedundant, false)]",
-				"storageAccountName": "[steps('storage').name]",
+				"deployStorageAccount": "[steps('storage').newStorageAccount]",
+				"storageAccountId": "[if(equals(steps('storage').newStorageAccount, false), steps('storage').storageAccountId, '')]",
+				"storageAccountName": "[if(steps('storage').newStorageAccount, steps('storage').name, '')]",
 				"enablePublicAccess": "[steps('networking').publicAccess]",
 				"deployNetworking": "[if(steps('networking').networkInjection, steps('networking').virtualNetwork.newVNet, false)]",
 				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",

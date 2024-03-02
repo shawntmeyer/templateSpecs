@@ -1,13 +1,13 @@
 param location string
 param logAnalyticsWorkspaceId string
 param name string
-param planPricing string
+param hostingPlanPricing string
 param tags object
 param zoneRedundant bool
 
 var sku = {
-  name: split(planPricing, '_')[1]
-  tier: split(planPricing, '_')[0]
+  name: split(hostingPlanPricing, '_')[1]
+  tier: split(hostingPlanPricing, '_')[0]
   capacity: zoneRedundant ? 3 : 1
 }
 

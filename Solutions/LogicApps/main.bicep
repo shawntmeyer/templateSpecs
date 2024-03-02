@@ -15,8 +15,8 @@ param logicAppResourceGroupName string
 
 // Hosting Plan
 
-@description('Required. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "planId" parameter must be provided.')
-param deployPlan bool
+@description('Required. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "hostingPlanId" parameter must be provided.')
+param deployHostingPlan bool
 
 @description('''Optional. When you create a logic app in Azure, you must choose a hosting plan for your app.
 There are two basic hosting plans provided by Azure for logic apps: Consumption or Standard plans. 
@@ -27,30 +27,36 @@ There are two basic hosting plans provided by Azure for logic apps: Consumption 
   'Consumption'
   'Standard'
 ])
-param planType string = 'Standard'
+param hostingPlanType string = 'Standard'
 
 @description('Conditional. The resource Id of the existing server farm to use for the function App.')
-param planId string = ''
+param hostingPlanId string = ''
 
-@description('Conditional. The name of the service plan used by the function App. Not used when "planId" is provided or planType is set to "Consumption".')
-param planName string = ''
+@description('Conditional. The name of the service plan used by the function App. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
+param hostingPlanName string = ''
 
-@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Not used when "planId" is provided or planType is set to "Consumption".')
-param planResourceGroupName string = ''
+@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
+param hostingPlanResourceGroupName string = ''
 
-@description('Optional. The hosting plan pricing plan. Not used when "planId" is provided or planType is set to "Consumption".')
+@description('Optional. The hosting plan pricing plan. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 @allowed([
   'WorkflowStandard_WS1'
   'WorkflowStandard_WS2'
   'WorkflowStandard_WS3'
 ])
-param planPricing string = 'WorkflowStandard_WS1'
+param hostingPlanPricing string = 'WorkflowStandard_WS1'
 
-@description('Optional. Determines if the hosting plan is zone redundant. Not used when "planId" is provided or planType is set to "Consumption".')
-param planZoneRedundant bool = false
+@description('Optional. Determines if the hosting plan is zone redundant. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
+param hostingPlanZoneRedundant bool = false
 
-@description('Required. The name of the storage account used by the function App.')
-param storageAccountName string
+@description('Optional. Determines whether an existing storage account is used or a new one is deployed. If set to true, the "storageAccountName" parameter must be provided. If set to false, the "storageAccountId" parameter must be provided.')
+param deployStorageAccount bool = true
+
+@description('Conditional. The resource Id of the existing storage account to be used with the logic app.')
+param storageAccountId string = ''
+
+@description('Conditional. The name of the storage account used by the logic app. Required if "deployStorageAccount" is set to true.')
+param storageAccountName string = ''
 
 // Monitoring
 
@@ -175,7 +181,7 @@ param timestamp string = utcNow('yyyyMMddhhmmss')
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 
-var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}'
+var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}-uniqueString' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}-uniqueString'
 
 var subnetOutbound = enableVnetIntegration ? [
   {
@@ -233,8 +239,9 @@ var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
 
 // ensure that no resource Group Names are blank for deployments
 var resourceGroupNameLogicApp = logicAppResourceGroupName
-var resourceGroupNamePlan = !empty(planResourceGroupName) ? planResourceGroupName : resourceGroupNameLogicApp
+var resourceGroupNamePlan = !empty(hostingPlanResourceGroupName) ? hostingPlanResourceGroupName : resourceGroupNameLogicApp
 var resourceGroupNameNetworking = !empty(networkingResourceGroupName) ? networkingResourceGroupName : resourceGroupNameLogicApp
+var resourceGroupNameStorage = !empty(storageAccountId) && !deployStorageAccount ? split(storageAccountId, '/')[4] : resourceGroupNameLogicApp
 
 var resourceGroupNames = [
   resourceGroupNameNetworking
@@ -242,18 +249,20 @@ var resourceGroupNames = [
   resourceGroupNameLogicApp  
 ]
 
+var storageAccountSku = deployHostingPlan ? ( hostingPlanZoneRedundant ? 'Standard_ZRS' : 'Standard_LRS' ) : ( existingPlan.properties.numberOfWorkers > 1 ? 'Standard_ZRS' : 'Standard_LRS' )
+
 resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNames, resourceGroupNames): {
   name: resourceGroupName
   location: location
 }]
 
-module workflow 'modules/workflow.bicep' = if(planType == 'Consumption') {
+module workflow 'modules/workflow.bicep' = if(hostingPlanType == 'Consumption') {
   name: 'workflow-${timestamp}'
   scope: resourceGroup(resourceGroupNameLogicApp)
   params: {
     workflowName: logicAppName
     location: location
-    zoneRedundancy: planZoneRedundant ? 'Enabled' : ''
+    zoneRedundancy: hostingPlanZoneRedundant ? 'Enabled' : ''
     tags: tags
   }
   dependsOn: [
@@ -261,7 +270,7 @@ module workflow 'modules/workflow.bicep' = if(planType == 'Consumption') {
   ]
 }
 
-module networking 'modules/networking.bicep' = if(planType == 'Standard' && deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
+module networking 'modules/networking.bicep' = if(hostingPlanType == 'Standard' && deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
   name: 'networking-${timestamp}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
@@ -278,49 +287,71 @@ module networking 'modules/networking.bicep' = if(planType == 'Standard' && depl
   ]
 }
 
-module plan 'modules/hostingPlan.bicep' = if(planType == 'Standard' && deployPlan) {
-  name: 'plan-${timestamp}'
+module hostingPlan 'modules/hostingPlan.bicep' = if(hostingPlanType == 'Standard' && deployHostingPlan) {
+  name: 'hostingPlan-${timestamp}'
   scope: resourceGroup(resourceGroupNamePlan)
   params: {
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-    name: planName
-    planPricing: planPricing
+    name: hostingPlanName
+    hostingPlanPricing: hostingPlanPricing
     tags: tags
-    zoneRedundant: planZoneRedundant
+    zoneRedundant: hostingPlanZoneRedundant
   }
   dependsOn: [
     rgs
   ]
 }
 
-module logicAppResources 'modules/logicAppResources.bicep' = if(planType == 'Standard') {
-  name: 'logicAppResources-${timestamp}'
-  scope: resourceGroup(logicAppResourceGroupName)
+resource existingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(hostingPlanType == 'Standard' && !deployHostingPlan && !empty(hostingPlanId)) {
+  name: last(split(hostingPlanId, '/'))
+  scope: resourceGroup(split(hostingPlanId, '/')[2], split(hostingPlanId, '/')[4])
+}
+
+module storageResources 'modules/storage.bicep' = {
+  name: 'storage-resources-${timestamp}'
+  scope: resourceGroup(resourceGroupNameStorage)
   params: {
     location: location
-    enableApplicationInsights: enableApplicationInsights
-    enablePublicAccess: enablePublicAccess
-    enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
+    deployStorageAccount: deployStorageAccount
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
-    logicAppName: logicAppName
-    planId:  !empty(planId) ? planId : ( deployPlan ? plan.outputs.hostingPlanId : '' )
-    storageAccountName: storageAccountName   
+    fileShareName: toLower(logicAppName)
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     nameConvPrivEndpoints: nameConvPrivEndpoints
-    logicAppOutboundSubnetId: enableVnetIntegration ? ( !empty(logicAppOutboundSubnetId) ? logicAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
+    storageAccountId: storageAccountId
+    storageAccountName: storageAccountName
     storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
-    logicAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(logicAppInboundSubnetId) ? logicAppInboundSubnetId : networking.outputs.subnetIds[2] ) : '' 
+    storageAccountSku: storageAccountSku 
     storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
     storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
     storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
     storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
-    logicAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(logicAppPrivateDnsZoneId) ? logicAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
+    tags: tags
+  }
+}
+
+module logicAppResources 'modules/logicApp.bicep' = {
+  name: 'logicApp-resources-${timestamp}'
+  scope: resourceGroup(resourceGroupNameLogicApp)
+  params: {
+    enableApplicationInsights: enableApplicationInsights
+    enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
+    enablePublicAccess: enablePublicAccess
+    enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
+    hostingPlanId: !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' )
+    location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-    tags: tags 
+    logicAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(logicAppInboundSubnetId) ? logicAppInboundSubnetId : networking.outputs.subnetIds[2] ) : ''
+    logicAppName: logicAppName
+    logicAppOutboundSubnetId: enableVnetIntegration ? ( !empty(logicAppOutboundSubnetId) ? logicAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
+    logicAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(logicAppPrivateDnsZoneId) ? logicAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
+    nameConvPrivEndpoints: nameConvPrivEndpoints
+    storageAccountResourceId: storageResources.outputs.storageAccountResourceId 
+    tags: tags
   }
   dependsOn: [
     rgs
-    plan
+    hostingPlan
     networking
   ]
 }
