@@ -1,5 +1,6 @@
 param workflowName string
 param location string
+param logAnalyticsWorkspaceId string
 param parameters object = {}
 param tags object = {}
 param zoneRedundancy string = ''
@@ -17,3 +18,24 @@ resource workflow 'Microsoft.Logic/workflows@2016-10-01' = {
   }
   tags: contains(tags, 'Microsoft.Logic/workflows') ? tags['Microsoft.Logic/workflows'] : {}
 }
+
+resource logicApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
+  name: '${workflowName}-diagnosticSettings'
+  properties: {
+    logs: [
+      {
+        category: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
+    workspaceId: logAnalyticsWorkspaceId
+  }
+  scope: workflow
+}
+

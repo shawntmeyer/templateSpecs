@@ -89,7 +89,7 @@
 							"type": "Microsoft.Common.TextBox",
 							"label": "Logic App Name",
 							"placeholder": "logic-<name>-<env>-<region>",
-							"toolTip": "Required. The name of the function App. The name must be globally unique for the namespace 'azurewebsites.net'.",
+							"toolTip": "Required. The name of the logic app. The name must be globally unique for the namespace 'azurewebsites.net'.",
 							"constraints": {
 								"required": true,
 								"validations": [
@@ -223,7 +223,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "App Service Plan name",
 									"placeholder": "asp-logic-<sku>-<env>-<region>",
-									"toolTip": "The name of the app service plan used by the function App.",
+									"toolTip": "The name of the app service plan used by the logic app.",
 									"constraints": {
 										"required": true,
 										"regex": "^[0-9a-zA-Z-\\p{L}]{1,60}$",
@@ -373,7 +373,7 @@
 							"type": "Microsoft.Common.OptionsGroup",
 							"label": "Create a new storage account",
 							"defaultValue": "Yes",
-							"toolTip": "Select 'Yes' to create a new storage account or 'No' to select an existing storage from the region where the function app will be deployed.",
+							"toolTip": "Select 'Yes' to create a new storage account or 'No' to select an existing storage from the region where the logic app will be deployed.",
 							"constraints": {
 								"required": false,
 								"allowedValues": [
@@ -448,7 +448,7 @@
 							"label": "Existing Storage Account",
 							"placeholder": "Select Storage Account",
 							"multiLine": true,
-							"toolTip": "Select an existing storage account to use for the function app.",
+							"toolTip": "Select an existing storage account to use for the logic app.",
 							"constraints": {
 								"allowedValues": "[map(filter(steps('storage').storageApi.value, (sa) => and(equals(sa.location, steps('basics').scope.location.name), equals(sa.kind, 'StorageV2'), if(steps('basics').hosting.newServerFarm, if(steps('basics').hosting.zoneRedundant, equals(sa.sku.name, 'Standard_ZRS'), true), if(equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(sa.sku.name, 'Standard_ZRS'), true)))), (sa) => parse(concat('{\"label\":\"', sa.name, '\",\"description\":\"Resource Group: ', first(skip(split(sa.id, '/'), 4)), ' , Sku: ', sa.sku.name,'\",\"value\":\"', sa.id, '\"}')))]",
 								"required": true
@@ -548,7 +548,7 @@
 							"type": "Microsoft.Common.OptionsGroup",
 							"label": "Enable network integration",
 							"defaultValue": "Yes",
-							"toolTip": "Allows your function app to attach to and/or access resources inside a virtual network.",
+							"toolTip": "Allows your logic app to attach to and/or access resources inside a virtual network.",
 							"constraints": {
 								"allowedValues": [
 											{
@@ -613,7 +613,7 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Virtual Network",
 									"multiLine": true,
-									"toolTip": "Select the virtual network to which the function app will be integrated. All subnet selections below will be limited to this Virtual Network.",
+									"toolTip": "Select the virtual network to which the logic app will be integrated. All subnet selections below will be limited to this Virtual Network.",
 									"constraints": {
 										"required": true,
 										"allowedValues": "[map(filter(steps('networking').virtualNetworksApi.value, (item) => equals(item.location, steps('basics').scope.location.name)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
@@ -625,7 +625,7 @@
 									"type": "Microsoft.Common.TextBlock",
 									"visible": "[equals(steps('networking').virtualNetwork.newVNet, true)]",
 									"options": {
-										"text": "Specify the virtual network name, resource group, and virtual network address prefix to which the function app and new service plan will be integrated. All networking resources will be deployed to this resource group. Naming of the virtual network and resource group could be based on a shared model or specific to the app service plan deployed via this solution."
+										"text": "Specify the virtual network name, resource group, and virtual network address prefix to which the logic app and new service plan will be integrated. All networking resources will be deployed to this resource group. Naming of the virtual network and resource group could be based on a shared model or specific to the app service plan deployed via this solution."
 									}
 								},
 								{
@@ -633,7 +633,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Virtual Network Name",
 									"subLabel": "",
-									"placeholder": "vnet-logicapps-<env>-<region>",
+									"placeholder": "vnet-logic-apps-<env>-<region>",
 									"toolTip": "Specify the name of the new Virtual Network to create for Logic App Virtual Network Integration. This vnet and associated resources will be deployed to the resource group selected in the 'Plan' section of the 'Basics' blade.",
 									"constraints": {
 										"required": false,
@@ -833,7 +833,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Outbound subnet name",
 									"placeholder": "",
-									"defaultValue": "[concat('snet-', steps('basics').hosting.hostingPlanName, '-outbound')]",
+									"defaultValue": "[concat('snet-', steps('basics').logicAppName, '-outbound')]",
 									"toolTip": "Provide the name of the outbound subnet",
 									"constraints": {
 										"required": true,
@@ -860,7 +860,7 @@
 									"name": "snetExistingAspTextBlock",
 									"type": "Microsoft.Common.TextBlock",
 									"options": {
-										"text": "Select the subnet in the chosen virtual network to be used for integration. VNet Integration enables your app to make calls into the chosen virtual network. You can also put network security groups or route tables on this subnet to control all outbound traffic from your function app. The list of subnets is automatically filtered to only those delegated and linked to the app service plan specified on the basics page."
+										"text": "Select the subnet in the chosen virtual network to be used for integration. VNet Integration enables your app to make calls into the chosen virtual network. You can also put network security groups or route tables on this subnet to control all outbound traffic from your logic app. The list of subnets is automatically filtered to only those delegated and linked to the app service plan specified on the basics page."
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVnetIntegration)]"
 								},
@@ -933,7 +933,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Storage account subnet name",
 									"placeholder": "",
-									"defaultValue": "snet-function-apps-storage",
+									"defaultValue": "snet-logic-apps-storage",
 									"toolTip": "Provide the name of the storage account private endpoint subnet",
 									"constraints": {
 										"required": true,

@@ -262,6 +262,7 @@ module workflow 'modules/workflow.bicep' = if(hostingPlanType == 'Consumption') 
   params: {
     workflowName: logicAppName
     location: location
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     zoneRedundancy: hostingPlanZoneRedundant ? 'Enabled' : ''
     tags: tags
   }

@@ -144,7 +144,12 @@ resource logicApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privat
 resource logicApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId)) {
   name: '${logicAppName}-diagnosticSettings'
   properties: {
-    logs: [
+    logs: environment().name == 'AzureUSGovernment' ? [
+      {
+        category: 'FunctionAppLogs'
+        enabled: true
+      }
+    ] : [
       {
         category: 'FunctionAppLogs'
         enabled: true

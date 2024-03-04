@@ -879,7 +879,7 @@
 									"type": "Microsoft.Common.TextBox",
 									"label": "Outbound subnet name",
 									"placeholder": "",
-									"defaultValue": "[concat('snet-', steps('basics').hosting.hostingPlanName, '-outbound')]",
+									"defaultValue": "[concat('snet-', steps('basics').functionAppName, '-outbound')]",
 									"toolTip": "Provide the name of the outbound subnet",
 									"constraints": {
 										"required": true,
