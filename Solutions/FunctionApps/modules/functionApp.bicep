@@ -104,9 +104,9 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet') ? 'v${decimalRuntimeVersion}' : null
     }
     virtualNetworkSubnetId: !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : null
-    vnetImagePullEnabled: enableStoragePrivateEndpoints ? true : false
-    vnetContentShareEnabled: enableStoragePrivateEndpoints ? true : false
-    vnetRouteAllEnabled: enableStoragePrivateEndpoints ? true : false
+    vnetImagePullEnabled: !empty(functionAppOutboundSubnetId) ? true : false
+    vnetContentShareEnabled: !empty(functionAppOutboundSubnetId) ? true : false
+    vnetRouteAllEnabled: !empty(functionAppOutboundSubnetId) ? true : false
   }
 }
 

@@ -100,9 +100,9 @@ resource logicApp 'Microsoft.Web/sites@2023-01-01' = {
       appSettings: appSettings
     }
     virtualNetworkSubnetId: !empty(logicAppOutboundSubnetId) ? logicAppOutboundSubnetId : null
-    vnetImagePullEnabled: enableStoragePrivateEndpoints ? true : false
-    vnetContentShareEnabled: enableStoragePrivateEndpoints ? true : false
-    vnetRouteAllEnabled: enableStoragePrivateEndpoints ? true : false
+    vnetImagePullEnabled: !empty(logicAppOutboundSubnetId) ? true : false
+    vnetContentShareEnabled: !empty(logicAppOutboundSubnetId) ? true : false
+    vnetRouteAllEnabled: !empty(logicAppOutboundSubnetId) ? true : false
   }
 }
 
