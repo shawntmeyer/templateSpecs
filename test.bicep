@@ -1,1 +1,2 @@
-param nameConvResTypeAtEnd bool
+param filtered array
+param location string

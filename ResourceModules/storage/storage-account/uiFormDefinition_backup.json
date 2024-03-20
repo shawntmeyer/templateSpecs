@@ -32,6 +32,14 @@
                             }
                         },
 						{
+							"name": "locationsApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').resourceScope.subscription.id,'/locations?api-version=2020-01-01')]"
+							}
+						},
+						{
                             "name": "storageApi",
                             "type": "Microsoft.Solutions.ArmApiControl",
                             "request": {
@@ -87,19 +95,6 @@
 									"visible": true
 								},
 								{
-									"name": "location",
-									"type": "Microsoft.Common.DropDown",
-									"label": "Storage Account Region",
-									"placeholder": "",
-									"defaultValue": "[steps('basics').resourceScope.location.displayName]",
-									"toolTip": "",
-									"constraints": {
-										"allowedValues": "[map(first(map(filter(steps('basics').storageApi.value, (resourceTypes) => equals(resourceTypes.resourceType, 'storageAccounts')), (item) => item.locations)), (item) => parse(concat('{\"label\":\"', item, '\",\"value\":\"', toLower(replace(item, ' ', '')), '\"}')))]",
-										"required": true
-									},
-									"visible": true
-								},
-								{
 									"name": "performance",
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "Performance",
@@ -151,10 +146,41 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Redundancy",
 									"placeholder": "",
-									"defaultValue": "Locally Redundant Storage (LRS)",
+									"defaultValue": "Zone-redundant storage (ZRS)",
 									"toolTip": "The data in your Azure storage account is always replicated to ensure durability and high availability. Choose a replication strategy that matches your durability requirements. Some settings can't be changed after the storage account is created. See https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy for more information.",
 									"constraints": {
-										"allowedValues": "[if(empty(filter(first(map(filter(steps('basics').storageApi.value, (types) => equals(types.resourceType, 'storageAccounts')), (stAccts) => stAccts.zoneMappings)), (zm) => and(equals(toLower(replace(zm.location, ' ', '')), steps('basics').storageAccountDetails.location), equals(length(zm.zones), 3)))), parse('[{\"label\":\"Locally Redundant Storage (LRS)\",\"value\":\"LRS\"},{\"label\":\"Geo Replicated Storage (GRS)\",\"value\":\"GRS\"},{\"label\":\"Read-Access Geo Replicated Storage (RAGRS)\",\"value\":\"RAGRS\"}]'), parse('[{\"label\":\"Locally Redundant Storage (LRS)\",\"value\":\"LRS\"},{\"label\":\"Zone Redundant Storage (ZRS)\",\"value\":\"ZRS\"},{\"label\":\"Geo Replicated Storage (GRS)\",\"value\":\"GRS\"},{\"label\":\"Read-Access Geo Replicated Storage (RAGRS)\",\"value\":\"RAGRS\"},{\"label\":\"Geo Replicated Zone Redundant Storage (GZRS)\",\"value\":\"GZRS\"},{\"label\":\"Read-Access Geo Replicated Zone Redundant Storage (RAGZRS)\",\"value\":\"RAGZRS\"}]'))]",
+										"allowedValues": [
+											{
+												"label": "Locally Redundant Storage (LRS)",
+												"description": "Lowest-cost option with basic protection against server rack and drive failures. Recommended for non-critical scenarios.",
+												"value": "LRS"
+											},
+											{
+												"label": "Geo Replicated Storage (GRS)",
+												"description": "Intermediate option with failover capabilities in a secondary region. Recommended for backup scenarios.",
+												"value": "GRS"
+											},
+											{
+												"label": "Read-Access Geo Replicated Storage (RAGRS)",
+												"description": "Intermediate option with failover capabilities in a secondary region. Recommended for backup scenarios.",
+												"value": "RAGRS"
+											},
+											{
+												"label": "Zone Redundant Storage (ZRS)",
+												"description": "Intermediate option with protection against datacenter-level failures. Recommended for high availability scenarios.",
+												"value": "ZRS"
+											},
+											{
+												"label": "Geo Zone Redundant Storage (GZRS)",
+												"description": "Optimal data protection solution that includes the offerings of both GRS and ZRS. Recommended for critical data scenarios.",
+												"value": "GZRS"
+											},
+											{
+												"label": "Read-Access Geo Replicated Zone Redundant Storage (RAGZRS)",
+												"description": "Intermediate option with failover capabilities in a secondary region. Recommended for backup scenarios.",
+												"value": "RAGZRS"
+											}
+										],
 										"required": false
 									},
 									"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Standard')]"
@@ -164,13 +190,37 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Redundancy",
 									"placeholder": "",
-									"defaultValue": "Locally Redundant Storage (LRS)",
+									"defaultValue": "Zone-redundant storage (ZRS)",
 									"toolTip": "The data in your Azure storage account is always replicated to ensure durability and high availability. Choose a replication strategy that matches your durability requirements. Some settings can't be changed after the storage account is created.",
 									"constraints": {
-										"allowedValues": "[if(empty(filter(first(map(filter(steps('basics').storageApi.value, (types) => equals(types.resourceType, 'storageAccounts')), (stAccts) => stAccts.zoneMappings)), (zm) => and(equals(toLower(replace(zm.location, ' ', '')), steps('basics').storageAccountDetails.location), equals(length(zm.zones), 3)))), parse('[{\"label\":\"Locally Redundant Storage (LRS)\",\"value\":\"LRS\"}]'), parse('[{\"label\":\"Locally Redundant Storage (LRS)\",\"value\":\"LRS\"},{\"label\":\"Zone Redundant Storage (ZRS)\",\"value\":\"ZRS\"}]'))]",
+										"allowedValues": [
+											{
+												"label": "Locally-redundant storage (LRS)",
+												"description": "Lowest-cost option with basic protection against server rack and drive failures. Recommended for non-critical scenarios.",
+												"value": "LRS"
+											},
+											{
+												"label": "Zone-redundant storage (ZRS)",
+												"description": "Intermediate option with protection against datacenter-level failures. Recommended for high availability scenarios.",
+												"value": "ZRS"
+											}
+										],
 										"required": false
 									},
 									"visible": "[equals(steps('basics').storageAccountDetails.performance, 'Premium')]"
+								},
+								{
+									"name": "location",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Storage Account Region",
+									"placeholder": "",
+									"defaultValue": "[steps('basics').resourceScope.location.displayName]",
+									"toolTip": "",
+									"constraints": {
+										"allowedValues": "[if(or(contains(steps('basics').storageAccountDetails.standardRedundancy, 'ZRS'), contains(steps('basics').storageAccountDetails.premiumRedundancy, 'ZRS')), map(filter(first(map(filter(steps('basics').storageApi.value, (resourceTypes) => equals(resourceTypes.resourceType, 'storageAccounts')), (item) => item.zoneMappings)), (item) => equals(length(item.zones), 3)), (item) => parse(concat('{\"label\":\"', item.location, '\",\"value\":\"', toLower(replace(item.location, ' ', '')), '\"}'))), map(first(map(filter(steps('basics').storageApi.value, (resourceTypes) => equals(resourceTypes.resourceType, 'storageAccounts')), (item) => item.locations)), (item) => parse(concat('{\"label\":\"', item, '\",\"value\":\"', toLower(replace(item, ' ', '')), '\"}'))))]",
+										"required": true
+									},
+									"visible": true
 								}
 							],
 							"visible": true
