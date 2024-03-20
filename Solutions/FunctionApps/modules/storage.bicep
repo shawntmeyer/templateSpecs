@@ -171,7 +171,7 @@ resource storageAccount_diagnosticSettings 'Microsoft.Insights/diagnosticSetting
 }
 
 resource storageAccount_blob_diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if(deployStorageAccount && !empty(logAnalyticsWorkspaceId)) {
-  name: '${storageAccountName}-logs'
+  name: '${storageAccountName}-blob-diagnosticSettings'
   scope: storageAccount::blobServices
   properties: {
     workspaceId: logAnalyticsWorkspaceId
