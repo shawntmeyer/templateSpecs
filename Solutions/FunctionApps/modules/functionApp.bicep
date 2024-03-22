@@ -1,7 +1,6 @@
 param enableApplicationInsights bool
 param enableInboundPrivateEndpoint bool
 param enablePublicAccess bool
-param enableStoragePrivateEndpoints bool
 param functionAppInboundSubnetId string
 param functionAppName string
 param functionAppOutboundSubnetId string

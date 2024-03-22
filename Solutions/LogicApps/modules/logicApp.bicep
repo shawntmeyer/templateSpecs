@@ -1,6 +1,5 @@
 param enableApplicationInsights bool
 param enableInboundPrivateEndpoint bool
-param enableStoragePrivateEndpoints bool
 param enablePublicAccess bool
 param logicAppName string
 param logicAppInboundSubnetId string
