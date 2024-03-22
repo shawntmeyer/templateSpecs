@@ -356,7 +356,6 @@ module functionAppResources 'modules/functionApp.bicep' = {
     enableApplicationInsights: enableApplicationInsights
     enablePublicAccess: enablePublicAccess
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
-    enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     functionAppKind: functionAppKind
     functionAppName: functionAppName
     functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''

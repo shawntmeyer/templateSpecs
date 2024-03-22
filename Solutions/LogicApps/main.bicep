@@ -338,7 +338,6 @@ module logicAppResources 'modules/logicApp.bicep' = {
     enableApplicationInsights: enableApplicationInsights
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
     enablePublicAccess: enablePublicAccess
-    enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     hostingPlanId: !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' )
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
