@@ -18,9 +18,10 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
       ]
     }
   }
-  tags: contains(tags, 'Microsoft.Network/virtualNetworks') ? tags['Microsoft.Network/virtualNetworks'] : {}
+  tags: tags[?'Microsoft.Network/virtualNetworks'] ?? {}
 }
 
+@batchSize(1)
 resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for subnet in subnets: {
   name: subnet.name
   parent: vnet

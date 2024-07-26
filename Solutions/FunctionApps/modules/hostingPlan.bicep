@@ -13,13 +13,13 @@ var sku = {
   capacity: zoneRedundant ? 3 : 1
 }
 
-resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
+resource hostingPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: name
   location: location
   sku: sku
-  tags: contains(tags, 'Microsoft.Web/serverfarms') ? tags['Microsoft.Web/serverfarms'] : {}
+  tags: tags[?'Microsoft.Web/serverfarms'] ?? {}
   properties: {
-    maximumElasticWorkerCount: hostingPlanType == 'FunctionsPremium' ? 20 : 1
+    maximumElasticWorkerCount: contains(hostingPlanType, 'Consumption') ? null : hostingPlanType == 'FunctionsPremium' ? 20 : 1
     reserved: contains(functionAppKind, 'linux') ? true : false
     zoneRedundant: zoneRedundant
   }
