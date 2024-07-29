@@ -104,15 +104,27 @@ var flexAppSettings = environment().name == 'AzureCloud'
       }
       {
         name: 'AzureWebJobsStorage__queueServiceUri'
-        value: storageAccount.properties.primaryEndpoints.queue
+        value: substring(
+          storageAccount.properties.primaryEndpoints.queue,
+          0,
+          length(storageAccount.properties.primaryEndpoints.queue) - 1
+        )
       }
       {
         name: 'AzureWebJobsStorage__tableServiceUri'
-        value: storageAccount.properties.primaryEndpoints.table
+        value: substring(
+          storageAccount.properties.primaryEndpoints.table,
+          0,
+          length(storageAccount.properties.primaryEndpoints.table) - 1
+        )
       }
       {
         name: 'AzureWebJobsStorage__fileServiceUri'
-        value: storageAccount.properties.primaryEndpoints.file
+        value: substring(
+          storageAccount.properties.primaryEndpoints.file,
+          0,
+          length(storageAccount.properties.primaryEndpoints.file) - 1
+        )
       }
     ]
 

@@ -337,7 +337,7 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   ]
 }
 
-resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(!deployHostingPlan && !empty(hostingPlanId)) {
+resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(!empty(hostingPlanId)) {
   name: last(split(hostingPlanId, '/'))
   scope: resourceGroup(split(hostingPlanId, '/')[2], split(hostingPlanId, '/')[4])
 }
