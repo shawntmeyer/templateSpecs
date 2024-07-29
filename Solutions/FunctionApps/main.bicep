@@ -33,14 +33,27 @@ param runtimeStack string = 'dotnet'
 @description('Optional. The version of the runtime stack used by the function App. The version must be compatible with the runtime stack.')
 param runtimeVersion string = '.NET 8 Isolated'
 
+@description('Optional. Determines the memory size of the instances on which your app runs in the FlexConsumption hosting plan.')
+@allowed([
+  2048
+  4096
+])
+param flexConsumptionInstanceMemoryMB int = 2048
+
+@description('Optional. The maximum number of instances that the function App can scale out to in the FlexConsumption hosting plan.')
+@minValue(40)
+@maxValue(1000)
+param flexConsumptionMaximumInstanceCount int = 100
+
 // Hosting Plan
 
 @description('Required. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "hostingPlanId" parameter must be provided.')
 param deployHostingPlan bool
 
-@description('''Optional. When you create a function app in Azure, you must choose a hosting plan for your app.
+@description('''Conditional. When you create a function app in Azure, you must choose a hosting plan for your app.
 There are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. 
 * Consumption: Scale automatically and only pay for compute resources when your functions are running.
+* FlexConsumption: Flex Consumption is a Linux-based Azure Functions hosting plan that builds on the Consumption pay for what you use serverless billing model. It gives you more flexibility and customizability by introducing private networking, instance memory size selection, and fast/large scale-out features still based on a serverless model.
 * FunctionsPremium: Automatically scales based on demand using pre-warmed workers, which run applications with no delay after being idle, runs on more powerful instances, and connects to virtual networks.
 * AppServicePlan: Best for long-running scenarios where Durable Functions can't be used. Consider an App Service plan in the following situations:
   * You have existing, underutilized VMs that are already running other App Service instances.
@@ -48,11 +61,12 @@ There are three basic Azure Functions hosting plans provided by Azure Functions:
 ''')
 @allowed([
   'Consumption'
+  'FlexConsumption' // Preview - limited regional availability
   'FunctionsPremium'
   'AppServicePlan'
-  'NotApplicable'
+  ''
 ])
-param hostingPlanType string = 'FunctionsPremium'
+param hostingPlanType string = ''
 
 @description('Conditional. The resource Id of the existing server farm to use for the function App.')
 param hostingPlanId string = ''
@@ -68,14 +82,15 @@ param hostingPlanResourceGroupName string = ''
   'ElasticPremium_EP1'
   'ElasticPremium_EP2'
   'ElasticPremium_EP3'
+  'FlexConsumption_FC1' // Preview - limited regional availability
   'Basic_B1'
   'Standard_S1'
   'PremiumV3_P1V3'
   'PremiumV3_P2V3'
   'PremiumV3_P3V3'
-  'NotApplicable'
+  ''
 ])
-param hostingPlanPricing string = 'ElasticPremium_EP1'
+param hostingPlanPricing string = ''
 
 @description('Optional. Determines if the hosting plan is zone redundant. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 param hostingPlanZoneRedundant bool = false
@@ -209,6 +224,7 @@ param tags object = {}
 @description('Do not change. Used for deployment naming.')
 param timestamp string = utcNow('yyyyMMddhhmmss')
 
+var blobContainerName = 'app-package-${toLower(functionAppName)}'
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 
@@ -221,9 +237,9 @@ var subnetOutbound = enableVnetIntegration ? [
     properties: {
       delegations: [
         {
-          name: 'webapp'
+          name: hostingPlanType == 'FlexConsumption' ? 'appEnvironments' : 'webServerFarms'
           properties: {
-            serviceName: 'Microsoft.Web/serverFarms'
+            serviceName: hostingPlanType == 'FlexConsumption' ? 'Microsoft.App/environments' : 'Microsoft.Web/serverFarms'
           }
         }
       ]
@@ -308,11 +324,11 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   scope: resourceGroup(resourceGroupNameHostingPlan)
   params: {
     functionAppKind: functionAppKind
-    hostingPlanType: hostingPlanType
+    hostingPlanType: hostingPlanType!
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     name: hostingPlanName
-    planPricing: hostingPlanPricing
+    planPricing: hostingPlanPricing!
     tags: tags
     zoneRedundant: hostingPlanZoneRedundant
   }
@@ -321,7 +337,7 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   ]
 }
 
-resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(hostingPlanType == 'Standard' && !deployHostingPlan && !empty(hostingPlanId)) {
+resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(!empty(hostingPlanId)) {
   name: last(split(hostingPlanId, '/'))
   scope: resourceGroup(split(hostingPlanId, '/')[2], split(hostingPlanId, '/')[4])
 }
@@ -331,6 +347,7 @@ module storageResources 'modules/storage.bicep' = {
   scope: resourceGroup(resourceGroupNameStorage)
   params: {
     location: location
+    containerName: blobContainerName
     deployStorageAccount: deployStorageAccount
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
     fileShareName: toLower(functionAppName)
@@ -353,6 +370,7 @@ module functionAppResources 'modules/functionApp.bicep' = {
   scope: resourceGroup(functionAppResourceGroupName)
   params: {
     location: location
+    blobContainerName: blobContainerName
     enableApplicationInsights: enableApplicationInsights
     enablePublicAccess: enablePublicAccess
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
@@ -361,6 +379,7 @@ module functionAppResources 'modules/functionApp.bicep' = {
     functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
     functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : ''    
     functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
+    hostingPlanType: hostingPlanType == 'Consumption' ? '' : hostingPlanType!
     hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' ))
     nameConvPrivEndpoints: nameConvPrivEndpoints
     runtimeStack: runtimeStack
@@ -368,6 +387,8 @@ module functionAppResources 'modules/functionApp.bicep' = {
     storageAccountResourceId: storageResources.outputs.storageAccountResourceId   
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     tags: tags
+    instanceMemoryMB: flexConsumptionInstanceMemoryMB
+    maximumInstanceCount: flexConsumptionMaximumInstanceCount
   }
   dependsOn: [
     rgs

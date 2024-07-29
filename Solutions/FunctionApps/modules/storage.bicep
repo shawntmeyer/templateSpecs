@@ -1,6 +1,8 @@
+param containerName string
 param deployStorageAccount bool
 param enableStoragePrivateEndpoints bool
 param fileShareName string
+param hostPlanType string?
 param location string
 param logAnalyticsWorkspaceId string
 param nameConvPrivEndpoints string
@@ -41,7 +43,7 @@ var storageAccountPrivateEndpoints = enableStoragePrivateEndpoints ? [
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(deployStorageAccount) {
   name: storageAccountNameVar
   location: location
-  tags: contains(tags, 'Microsoft.Storage/storageAccounts') ? tags['Microsoft.Storage/storageAccounts'] : {}
+  tags: tags[?'Microsoft.Storage/storageAccounts'] ?? {}
   sku: {
     name: storageAccountSku
   }
@@ -86,7 +88,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
     }
   }
   resource blobServices 'blobServices' = {
-    name: 'default'
+    name: 'default'    
   }
   resource fileServices 'fileServices' = {
     name: 'default'
@@ -94,7 +96,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
   
 }
 
-resource shares 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(deployStorageAccount) {
+resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(deployStorageAccount && hostPlanType != 'FlexConsumption') {
   name: fileShareName
   parent: storageAccount::fileServices
   properties: {
@@ -103,28 +105,49 @@ resource shares 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-0
   }
 }
 
+resource blobContainerNewAccount 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = if (deployStorageAccount && hostPlanType == 'FlexConsumption') {
+  name: containerName
+  parent: storageAccount::blobServices
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 resource existingStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing = if(!deployStorageAccount && !empty(storageAccountId)) {
   name: storageAccountNameVar
 }
 
-resource fileServices 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId)) {
+resource fileServicesExistingAccount 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType != 'FlexConsumption') {
   name: 'default'
   parent: existingStorageAccount
 }
 
-resource fileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId)) {
+resource fileShareExistingAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType != 'FlexConsumption') {
   name: fileShareName
-  parent: fileServices
+  parent: fileServicesExistingAccount
   properties: {
     enabledProtocols: 'SMB'
     shareQuota: 5120
   }
 }
 
+resource blobServicesExistingAccount 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType == 'FlexConsumption') {
+  name: 'default'
+  parent: existingStorageAccount
+}
+
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType == 'FlexConsumption') {
+  name: containerName
+  parent: blobServicesExistingAccount
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
   name: privateEndpoint.name
   location: location
-  tags: contains(tags, 'Microsoft.Network/privateEndpoints') ? tags['Microsoft.Network/privateEndpoints'] : {}
+  tags: tags[?'Microsoft.Network/privateEndpoints'] ?? {}
   properties: {
     privateLinkServiceConnections: [
       {

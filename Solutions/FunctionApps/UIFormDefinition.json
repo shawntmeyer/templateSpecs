@@ -134,7 +134,7 @@
 							"toolTip": "The runtime stack used by the function App.",
 							"constraints": {
 								"required": true,
-								"allowedValues": "[map(steps('basics').functionAppStacksApi.value, (item) => parse(concat('{\"label\":\"', item.properties.displayText, '\",\"description\":\"Preferred OS: ', item.properties.preferredOs, '\",\"value\":\"', item.name, '\"}')))]"
+								"allowedValues": "[map(steps('basics').functionAppStacksApi.value, (stack) => parse(concat('{\"label\":\"', stack.properties.displayText, '\",\"description\":\"Preferred OS: ', stack.properties.preferredOs, '\",\"value\":\"', stack.name, '\"}')))]"
 							},
 							"visible": true
 						},
@@ -146,7 +146,7 @@
 							"toolTip": "The runtime stack used by the function App.",
 							"constraints": {
 								"required": false,
-								"allowedValues": "[map(first(map(filter(steps('basics').functionAppStacksApi.value, (item) => equals(item.name, steps('basics').runtimeStackName)), (item) => item.properties.majorVersions)), (item) => parse(concat('{\"label\":\"', item.displayText, '\",\"value\":\"', item.displayText, '\"}')))]"
+								"allowedValues": "[map(first(map(filter(steps('basics').functionAppStacksApi.value, (stack) => equals(stack.name, steps('basics').runtimeStackName)), (ver) => ver.properties.majorVersions)), (ver) => parse(concat('{\"label\":\"', ver.displayText, '\",\"value\":\"', ver.displayText, '\"}')))]"
 							},
 							"visible": true
 						},
@@ -187,6 +187,14 @@
 							"label": "Hosting",
 							"elements": [
 								{
+									"name": "geoRegionsApi",
+									"type": "Microsoft.Solutions.ArmApiControl",
+									"request": {
+										"method": "GET",
+										"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Web/geoRegions?api-version=2022-03-01')]"
+									}
+								},
+								{
 									"name": "hostingTextBlock1",
 									"type": "Microsoft.Common.TextBlock",
 									"visible": true,
@@ -207,23 +215,7 @@
 									"toolTip": "Select 'Consumption' for serverless and event-driven scaling for the lowest minimum cost, 'Premium' for enterprise-level, serverless applications with event-based scaling and network isolation, or 'App Service Plan' for reusing compute from existing app service plan.",
 									"constraints": {
 										"required": false,
-										"allowedValues": [
-											{
-												"label": "Consumption (Serverless)",
-												"description": "Optimized for serverless and event-driven workloads.",
-												"value": "Consumption"
-											},
-											{
-												"label": "Functions Premium",
-												"description": "Event based scaling and network isolation, ideal for workloads running continuously.",
-												"value": "FunctionsPremium"
-											},
-											{
-												"label": "App service plan",
-												"description": "Fully isolated and dedicated environment suitable for workloads that need large SKUs or need to co-locate Web Apps and Functions.",
-												"value": "AppServicePlan"
-											}
-										]
+										"allowedValues": "[if(and(contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'FLEXCONSUMPTION'), equals(steps('basics').functionAppKind, 'functionapp,linux')), parse('[{\"label\":\"Consumption (Serverless)\",\"description\":\"Optimized for serverless and event-driven workloads.\",\"value\":\"Consumption\"},{\"label\":\"Flex Consumption\",\"description\":\"Get high scalability with compute choices, virtual networking, and pay-as-you billing.\",\"value\":\"FlexConsumption\"},{\"label\":\"Functions Premium\",\"description\":\"Event based scaling and network isolation, ideal for workloads running continuously.\",\"value\":\"FunctionsPremium\"},{\"label\":\"App service plan\",\"description\":\"Fully isolated and dedicated environment suitable for workloads that need large SKUs or need to co-locate Web Apps and Functions.\",\"value\":\"AppServicePlan\"}]'),parse('[{\"label\":\"Consumption (Serverless)\",\"description\":\"Optimized for serverless and event-driven workloads.\",\"value\":\"Consumption\"},{\"label\":\"Functions Premium\",\"description\":\"Event based scaling and network isolation, ideal for workloads running continuously.\",\"value\":\"FunctionsPremium\"},{\"label\":\"App service plan\",\"description\":\"Fully isolated and dedicated environment suitable for workloads that need large SKUs or need to co-locate Web Apps and Functions.\",\"value\":\"AppServicePlan\"}]'))]"
 									},
 									"infoMessages": [],
 									"visible": true
@@ -232,19 +224,10 @@
 									"name": "newServerFarm",
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "Deploy a new a App Service Plan to host the Function App.",
-									"defaultValue": "No",
+									"defaultValue": "[if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), 'Yes', 'No')]",
 									"toolTip": "Select 'No' to use an existing server farm. The plans listed will be limited to those which are compatible with the runtime, operating system, and plan type selected.",
 									"constraints": {
-										"allowedValues": [
-											{
-												"label": "Yes",
-												"value": true
-											},
-											{
-												"label": "No",
-												"value": false
-											}
-										],
+										"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), parse('[{\"label\":\"Yes\",\"value\":true}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]",
 										"required": true
 									},
 									"visible": "[not(equals(steps('basics').hosting.hostingPlanType, 'Consumption'))]"
@@ -274,7 +257,8 @@
 									"toolTip": "Select the App Service Plan that will host the Function App.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app'))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource Group: ', first(skip(split(item.id, '/'), 4)) , ', Sku: ', item.sku.name, ', ZoneRedundant: ', if(greater(item.properties.numberOfWorkers, 1), 'Yes', 'No'), '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), equals(item.kind, 'functionapp'), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app')))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource Group: ', first(skip(split(item.id, '/'), 4)) , ', Sku: ', item.sku.name, ', ZoneRedundant: ', if(greater(item.properties.numberOfWorkers, 1), 'Yes', 'No'), '\",\"value\":\"', item.id, '\"}')))]"
+
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},
@@ -322,22 +306,14 @@
 									"toolTip": "Select the hosting plan pricing",
 									"constraints": {
 										"required": false,
-										"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), parse('[{\"label\":\"Elastic Premium EP1\",\"value\":\"ElasticPremium_EP1\"},{\"label\":\"Elastic Premium EP2\",\"value\":\"ElasticPremium_EP2\"},{\"label\":\"Elastic Premium EP3\",\"value\":\"ElasticPremium_EP3\"}]'), if(equals(steps('basics').functionAppKind, 'functionapp'), parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"Standard S1\",\"value\":\"Standard_S1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]'),parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]')))]"
+										"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), parse('[{\"label\":\"Elastic Premium EP1\",\"value\":\"ElasticPremium_EP1\"},{\"label\":\"Elastic Premium EP2\",\"value\":\"ElasticPremium_EP2\"},{\"label\":\"Elastic Premium EP3\",\"value\":\"ElasticPremium_EP3\"}]'), if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), parse('[{\"label\":\"Flex Consumption FC1\",\"value\":\"FlexConsumption_FC1\"}]'), if(equals(steps('basics').functionAppKind, 'functionapp'), parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"Standard S1\",\"value\":\"Standard_S1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]'), parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]'))))]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},
 								{
-									"name": "geoRegionsApi",
-									"type": "Microsoft.Solutions.ArmApiControl",
-									"request": {
-										"method": "GET",
-										"path": "[concat(steps('basics').scope.subscription.id,'/providers/Microsoft.Web/geoRegions?api-version=2022-03-01')]"
-									}
-								},
-								{
 									"name": "zoneRedundancyTextBlock",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), or(contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), equals(steps('basics').hosting.hostingPlanPricing, 'FlexConsumption')), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
 									"options": {
 										"text": "An App Service Plan can be deployed as a zone redundant service in the regions that support it. This is a deployment time only decision. You can't make an App Service Plan zone redundant after it has been deployed.",
 										"link": {
@@ -364,7 +340,7 @@
 											}
 										]
 									},
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), or(equals(steps('basics').hosting.hostingPlanPricing, 'FlexConsumption'), contains(steps('basics').hosting.hostingPlanPricing, 'Premium')), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
 								}
 							],
 							"visible": true
@@ -594,7 +570,7 @@
 							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
 							"options": {
 								"icon": "Warning",
-								"text": "Network integration is only available in Functions Premium and Basic, Standard, Premium, Premium V2, Premium V3 Dedicated App Service plans.",
+								"text": "Network integration is only available in Flex Consumption, Functions Premium and Basic, Standard, Premium, Premium V2, Premium V3 Dedicated App Service plans.",
 								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-networking-options?tabs=azure-portal#matrix-of-networking-features"
 							}
 						},
@@ -626,17 +602,25 @@
 									"visible": true
 								},
 								{
-									"name": "existingVNetExistingASPTextBlock",
+									"name": "existingVNetExistingASPTextBlock2",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), equals(steps('networking').virtualNetwork.newVNet, false))]",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption')), equals(steps('networking').virtualNetwork.newVNet, false))]",
 									"options": {
 										"text": "[concat('Select the subscription and then the virtual network to which the existing App Service Plan (', last(split(steps('basics').hosting.existingHostingPlanId, '/')) ,') is already associated. You can find this information in the Networking | Virtual Networking Integration section of the App Service Plan.')]"
 									}
 								},
 								{
-									"name": "existingVNetNewASPTextBlock",
+									"name": "existingVNetNewASPTextBlock1",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false))]",
+									"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false))]",
+									"options": {
+										"text": "Select the subscription and then the virtual network to which the new App Service Plan will be linked. The network listed must have a subnet delegated to 'Microsoft.App/environments' but not associated with an existing App Service Plan."
+									}
+								},
+								{
+									"name": "existingVNetNewASPTextBlock2",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption')), steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false))]",
 									"options": {
 										"text": "Select the subscription and then the virtual network to which the new App Service Plan will be linked. The network listed must have a subnet delegated to 'Microsoft.Web/serverFarms' but not associated with an existing App Service Plan."
 									}
@@ -903,26 +887,35 @@
 									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration)]"
 								},
 								{
-									"name": "snetExistingAspTextBlock",
+									"name": "snetExistingAspTextBlock2",
 									"type": "Microsoft.Common.TextBlock",
 									"options": {
 										"text": "Select the subnet in the chosen virtual network to be used for integration. VNet Integration enables your app to make calls into the chosen virtual network. You can also put network security groups or route tables on this subnet to control all outbound traffic from your function app. The list of subnets is automatically filtered to only those delegated and linked to the app service plan specified on the basics page."
 									},
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
+									"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption')), equals(steps('basics').hosting.newServerFarm, false), equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
 								},
 								{
 									"name": "wrongVnetExistingAspErrorBox",
 									"type": "Microsoft.Common.InfoBox",
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => item.name)))]",
+									"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption')), equals(steps('basics').hosting.newServerFarm, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => item.name)))]",
 									"options": {
 										"icon": "Error",
 										"text": "There are no subnets in the virtual network chosen above that have a link to the existing app service plan chosen on the 'Basics' page. Either select a different virtual network above, a different hosting plan on the 'Basics' page, or choose to deploy a new App Service Plan."
 									}
 								},
 								{
-									"name": "noSnetsWithDelegationErrorBox",
+									"name": "noSnetsWithDelegationErrorBox1",
 									"type": "Microsoft.Common.InfoBox",
-									"visible": "[and(steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => item.name)))]",
+									"visible": "[and(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(steps('networking').subnetsApi.value, (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.App/environments')), (item) => item.name)))]",
+									"options": {
+										"icon": "Error",
+										"text": "There are no subnets in the virtual network chosen above that are delegated to the 'Microsoft.App/environments' service. You must either select another network, select the option to create a new virtual network, or create a subnet in the chosen virtual network, delegate it to 'Microsoft.App/environments', and then restart this deployment."
+									}
+								},
+								{
+									"name": "noSnetsWithDelegationErrorBox2",
+									"type": "Microsoft.Common.InfoBox",
+									"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption')), steps('basics').hosting.newServerFarm, equals(steps('networking').virtualNetwork.newVNet, false), not(empty(steps('networking').virtualNetwork.virtualNetwork)), empty(map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => item.name)))]",
 									"options": {
 										"icon": "Error",
 										"text": "There are no subnets in the virtual network chosen above that are delegated to the 'Microsoft.Web/serverFarms' service and are not already linked to an App Service Plan. You must either select another network, select the option to create a new virtual network, or create a subnet in the chosen virtual network, delegate it to 'Microsoft.Web/serverFarms', and then restart this deployment."
@@ -932,11 +925,11 @@
 									"name": "outboundSubnet",
 									"type": "Microsoft.Common.DropDown",
 									"label": "Outbound subnet",
-									"defaultValue": "[map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => item.name)]",
+									"defaultValue": "[map(filter(steps('networking').subnetsApi.value, (snet) => equals(first(map(snet.properties.serviceAssociationLinks, (snet) => snet.properties.link)), steps('basics').hosting.existingHostingPlanId)), (snet) => snet.name)]",
 									"toolTip": "Select an existing subnet for outbound access.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[if(equals(steps('basics').hosting.newServerFarm, false), map(filter(steps('networking').subnetsApi.value, (item) => equals(first(map(item.properties.serviceAssociationLinks, (item) => item.properties.link)), steps('basics').hosting.existingHostingPlanId)), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}'))), map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}'))))]"
+										"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), map(filter(steps('networking').subnetsApi.value, (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.App/environments')), (snet) => parse(concat('{\"label\":\"', snet.name, '\",\"value\":\"', snet.id, '\"}'))), if(equals(steps('basics').hosting.newServerFarm, false), map(filter(steps('networking').subnetsApi.value, (snet) => equals(first(map(snet.properties.serviceAssociationLinks, (snet) => snet.properties.link)), steps('basics').hosting.existingHostingPlanId)), (snet) => parse(concat('{\"label\":\"', snet.name, '\",\"value\":\"', snet.id, '\"}'))), map(filter(filter(steps('networking').subnetsApi.value, (snet) => empty(snet.properties.serviceAssociationLinks)), (snet) => equals(first(map(snet.properties.delegations, (del) => del.properties.serviceName)), 'Microsoft.Web/serverFarms')), (snet) => parse(concat('{\"label\":\"', snet.name, '\",\"value\":\"', snet.id, '\"}')))))]"
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
 								}
@@ -1026,7 +1019,7 @@
 									"toolTip": "Select an existing subnet for the storage account private endpoints.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (item) => and(empty(item.properties.delegations), equals(item.properties.privateEndpointNetworkPolicies, 'Disabled'))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').subnetsApi.value, (snet) => and(empty(snet.properties.delegations), equals(snet.properties.privateEndpointNetworkPolicies, 'Disabled'))), (snet) => parse(concat('{\"label\":\"', snet.name, '\",\"value\":\"', snet.id, '\"}')))]"
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE)]"
 								},
@@ -1058,7 +1051,7 @@
 									"defaultValue": "[steps('basics').scope.subscription.displayName]",
 									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
 									"constraints": {
-										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (sub) => parse(concat('{\"label\":\"', sub.displayName, '\",\"value\":\"', sub.id, '\"}')))]",
 										"required": true
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]"
@@ -1073,7 +1066,7 @@
 									"toolTip": "Select the existing Private DNS Zone for Azure Blobs.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.blob.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (dnsZone) => contains(dnsZone.name, 'privatelink.blob.')), (dnsZone) => parse(concat('{\"label\":\"', dnsZone.name, '\",\"description\":\"Resource group: ', first(skip(split(dnsZone.id, '/'), 4)), '\",\"value\":\"', dnsZone.id, '\"}')))]"
 									}
 								},
 								{
@@ -1086,7 +1079,7 @@
 									"toolTip": "Select the existing Private DNS Zone for Azure Files.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.file.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (dnsZone) => contains(dnsZone.name, 'privatelink.file.')), (dnsZone) => parse(concat('{\"label\":\"', dnsZone.name, '\",\"description\":\"Resource group: ', first(skip(split(dnsZone.id, '/'), 4)), '\",\"value\":\"', dnsZone.id, '\"}')))]"
 									}
 								},
 								{
@@ -1099,7 +1092,7 @@
 									"toolTip": "Select the existing Private DNS Zone for Azure Queues.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.queue.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (dnsZone) => contains(dnsZone.name, 'privatelink.queue.')), (dnsZone) => parse(concat('{\"label\":\"', dnsZone.name, '\",\"description\":\"Resource group: ', first(skip(split(dnsZone.id, '/'), 4)), '\",\"value\":\"', dnsZone.id, '\"}')))]"
 									}
 								},
 								{
@@ -1112,7 +1105,7 @@
 									"toolTip": "Select the existing Private DNS Zone for Azure Tables.",
 									"constraints": {
 										"required": true,
-										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (item) => contains(item.name, 'privatelink.table.')), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource group: ', first(skip(split(item.id, '/'), 4)), '\",\"value\":\"', item.id, '\"}')))]"
+										"allowedValues": "[map(filter(steps('networking').saPrivateDnsZonesApi.value, (dnsZone) => contains(dnsZone.name, 'privatelink.table.')), (dnsZone) => parse(concat('{\"label\":\"', dnsZone.name, '\",\"description\":\"Resource group: ', first(skip(split(dnsZone.id, '/'), 4)), '\",\"value\":\"', dnsZone.id, '\"}')))]"
 									}
 								}
 							],
@@ -1241,11 +1234,11 @@
 				"runtimeStack": "[steps('basics').runtimeStackName]",
 				"runtimeVersion": "[steps('basics').runtimeStackMinorVersion]",
 				"deployHostingPlan": "[if(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), false, steps('basics').hosting.newServerFarm)]",
-				"hostingPlanType": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanType, 'NotApplicable')]",
+				"hostingPlanType": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanType, '')]",
 				"hostingPlanId": "[if(steps('basics').hosting.newServerFarm, '', steps('basics').hosting.existingHostingPlanId)]",
 				"hostingPlanName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanName, '')]",
 				"hostingPlanResourceGroupName": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanResourceGroup.value.name, '')]",
-				"hostingPlanPricing": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanPricing, 'NotApplicable')]",
+				"hostingPlanPricing": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.hostingPlanPricing, '')]",
 				"hostingPlanZoneRedundant": "[if(steps('basics').hosting.newServerFarm, steps('basics').hosting.zoneRedundant, false)]",
 				"deployStorageAccount": "[steps('storage').newStorageAccount]",
 				"storageAccountId": "[if(equals(steps('storage').newStorageAccount, false), steps('storage').storageAccountId, '')]",
