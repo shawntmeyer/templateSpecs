@@ -64,6 +64,14 @@
 							}
 						},
 						{
+							"name": "subscriptionsApi",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "/subscriptions?api-version=2022-12-01"
+							}
+						},
+						{
 							"name": "name_checkNameAvailability",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
@@ -493,14 +501,6 @@
 					"label": "Networking",
 					"elements": [
 						{
-							"name": "subscriptionsApi",
-							"type": "Microsoft.Solutions.ArmApiControl",
-							"request": {
-								"method": "GET",
-								"path": "/subscriptions?api-version=2022-12-01"
-							}
-						},
-						{
 							"name": "faPrivateDnsZonesApi",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
@@ -633,7 +633,7 @@
 									"defaultValue": "[steps('basics').scope.subscription.displayName]",
 									"toolTip": "",
 									"constraints": {
-										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"allowedValues": "[map(steps('basics').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
 										"required": true
 									},
 									"visible": "[equals(steps('networking').virtualNetwork.newVNet, false)]"
@@ -812,7 +812,7 @@
 									"defaultValue": "[steps('basics').scope.subscription.displayName]",
 									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
 									"constraints": {
-										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"allowedValues": "[map(steps('basics').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
 										"required": true
 									},
 									"visible": "[and(steps('networking').inboundAccess.enablePrivateDNS, equals(steps('networking').virtualNetwork.newVNet, false))]"
@@ -1051,7 +1051,7 @@
 									"defaultValue": "[steps('basics').scope.subscription.displayName]",
 									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
 									"constraints": {
-										"allowedValues": "[map(steps('networking').subscriptionsApi.value, (sub) => parse(concat('{\"label\":\"', sub.displayName, '\",\"value\":\"', sub.id, '\"}')))]",
+										"allowedValues": "[map(steps('basics').subscriptionsApi.value, (sub) => parse(concat('{\"label\":\"', sub.displayName, '\",\"value\":\"', sub.id, '\"}')))]",
 										"required": true
 									},
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS)]"
