@@ -61,6 +61,14 @@
 							}
 						},
 						{
+									"name": "subscriptionsApi",
+									"type": "Microsoft.Solutions.ArmApiControl",
+									"request": {
+										"method": "GET",
+										"path": "/subscriptions?api-version=2022-12-01"
+									}
+						},
+						{
 							"name": "storageAccountDetails",
 							"type": "Microsoft.Common.Section",
 							"label": "Storage Account Details",
@@ -585,15 +593,7 @@
 							"name": "privateEndpoints",
 							"type": "Microsoft.Common.Section",
 							"label": "Private endpoints",
-							"elements": [
-								{
-									"name": "subscriptionsApi",
-									"type": "Microsoft.Solutions.ArmApiControl",
-									"request": {
-										"method": "GET",
-										"path": "/subscriptions?api-version=2022-12-01"
-									}
-								},
+							"elements": [								
 								{
                                     "name": "privateDNSZonesApi",
                                     "type": "Microsoft.Solutions.ArmApiControl",
@@ -630,7 +630,7 @@
 									"defaultValue": "[steps('basics').resourceScope.subscription.displayName]",
 									"toolTip": "Pick the subscription containing the Azure Private DNS Zones",
 									"constraints": {
-										"allowedValues": "[map(steps('networking').privateEndpoints.subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
+										"allowedValues": "[map(steps('basics').subscriptionsApi.value, (item) => parse(concat('{\"label\":\"', item.displayName, '\",\"value\":\"', item.id, '\"}')))]",
 										"required": true
 									},
 									"visible": true
