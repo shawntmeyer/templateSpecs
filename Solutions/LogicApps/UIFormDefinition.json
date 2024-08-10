@@ -480,6 +480,7 @@
 					"elements": [
 						{
 							"name": "faPrivateDnsZonesApi",
+							"condition": "[not(empty(steps('networking').inboundAccess.PrivateDNSZonesSubscription))]",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
@@ -488,6 +489,7 @@
 						},
 						{
 							"name": "saPrivateDnsZonesApi",
+							"condition": "[not(empty(steps('networking').storagePrivateEndpoints.PrivateDNSZonesSubscription))]",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
@@ -496,6 +498,7 @@
 						},
 						{
 							"name": "virtualNetworksApi",
+							"condition": "[not(empty(steps('networking').virtualNetwork.networksSubscription))]",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
@@ -504,6 +507,7 @@
 						},
 						{
 							"name": "subnetsApi",
+							"condition": "[not(empty(steps('networking').virtualNetwork.virtualNetwork))]",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",

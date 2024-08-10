@@ -729,6 +729,7 @@
 								},
 								{
 									"name": "subnetsApi",
+									"condition": "[not(empty(steps('networking').privateEndpoints.virtualNetwork))]",
 									"type": "Microsoft.Solutions.ArmApiControl",
 									"request": {
 										"method": "GET",
