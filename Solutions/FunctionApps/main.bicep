@@ -224,6 +224,27 @@ param tags object = {}
 @description('Do not change. Used for deployment naming.')
 param timestamp string = utcNow('yyyyMMddhhmmss')
 
+// existing resources
+
+resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(!empty(hostingPlanId)) {
+  name: last(split(hostingPlanId, '/'))
+  scope: resourceGroup(split(hostingPlanId, '/')[2], split(hostingPlanId, '/')[4])
+}
+
+// variables
+
+var cloudSuffix = replace(replace(environment().resourceManager, 'https://management.', ''), '/', '')
+var privateDnsZoneSuffixes_AzureWebSites = {
+  AzureCloud: 'azurewebsites.net'
+  AzureUSGovernment: 'azurewebsites.us'
+  USNat: null
+  USSec: null
+}
+var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
+  'privatelink.${privateDnsZoneSuffixes_AzureWebSites[environment().name] ?? 'appservice.${cloudSuffix}'}'
+] : []
+
+var existingHostingPlanType = !empty(existingHostingPlan) ? ( contains(existingHostingPlan.sku.tier, 'Flex') ? 'FlexConsumption' : (contains(existingHostingPlan.sku.tier, 'Elastic') ? 'FunctionsPremium' : 'AppServicePlan' ) ) : ''
 var blobContainerName = 'app-package-${toLower(functionAppName)}'
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
@@ -275,16 +296,6 @@ var storagePrivateDnsZoneNames =  enableStoragePrivateEndpoints ? [
   'privatelink.table.${environment().suffixes.storage}'
 ] : []
 
-var websiteSuffixes = {
-  azurecloud: 'azurewebsites.net'
-  azureusgovernment: 'azurewebsites.us'
-  usnat: 'azurewebsites.eaglex.ic.gov'
-}
-
-var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
-  'privatelink.${websiteSuffixes[environment().name]}'
-] : []
-
 // ensure that no resource Group Names are blank for deployments
 var resourceGroupNameFunctionApp = functionAppResourceGroupName
 var resourceGroupNameStorage = !empty(storageAccountId) && !deployStorageAccount ? split(storageAccountId, '/')[4] : resourceGroupNameFunctionApp
@@ -296,6 +307,8 @@ var resourceGroupNames = [
   resourceGroupNameHostingPlan
   resourceGroupNameFunctionApp  
 ]
+
+// deployments
 
 resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNames, resourceGroupNames): {
   name: resourceGroupName
@@ -337,11 +350,6 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   ]
 }
 
-resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(!empty(hostingPlanId)) {
-  name: last(split(hostingPlanId, '/'))
-  scope: resourceGroup(split(hostingPlanId, '/')[2], split(hostingPlanId, '/')[4])
-}
-
 module storageResources 'modules/storage.bicep' = {
   name: 'storage-resources-${timestamp}'
   scope: resourceGroup(resourceGroupNameStorage)
@@ -350,7 +358,8 @@ module storageResources 'modules/storage.bicep' = {
     containerName: blobContainerName
     deployStorageAccount: deployStorageAccount
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
-    fileShareName: toLower(functionAppName)
+    fileShareName: deployHostingPlan ? ( hostingPlanType != 'AppServicePlan' ? toLower(functionAppName) : '' ) : ( existingHostingPlanType != 'AppServicePlan' ? toLower(functionAppName) : '' )
+    hostPlanType: deployHostingPlan ? hostingPlanType : existingHostingPlanType
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     nameConvPrivEndpoints: nameConvPrivEndpoints
     storageAccountId: storageAccountId
@@ -379,7 +388,7 @@ module functionAppResources 'modules/functionApp.bicep' = {
     functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
     functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : ''    
     functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
-    hostingPlanType: hostingPlanType == 'Consumption' ? '' : hostingPlanType!
+    hostingPlanType: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlanType : existingHostingPlanType )
     hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' ))
     nameConvPrivEndpoints: nameConvPrivEndpoints
     runtimeStack: runtimeStack
