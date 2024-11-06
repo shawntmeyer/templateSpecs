@@ -219,7 +219,7 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "Hosting options and plans",
 									"multiLine": true,
-									"defaultValue": "Functions Premium",
+									"defaultValue": "App service plan",
 									"toolTip": "Select 'Consumption' for serverless and event-driven scaling for the lowest minimum cost, 'Premium' for enterprise-level, serverless applications with event-based scaling and network isolation, or 'App Service Plan' for reusing compute from existing app service plan.",
 									"constraints": {
 										"required": false,
@@ -310,11 +310,11 @@
 									"type": "Microsoft.Common.DropDown",
 									"label": "App Service Plan pricing",
 									"multiLine": true,
-									"defaultValue": "Elastic Premium EP1",
+									"defaultValue": "[if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), 'Elastic Premium EP1', if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), 'Flex Consumption FC1', 'PremiumV3 P0V3'))]",
 									"toolTip": "Select the hosting plan pricing",
 									"constraints": {
 										"required": false,
-										"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), parse('[{\"label\":\"Elastic Premium EP1\",\"value\":\"ElasticPremium_EP1\"},{\"label\":\"Elastic Premium EP2\",\"value\":\"ElasticPremium_EP2\"},{\"label\":\"Elastic Premium EP3\",\"value\":\"ElasticPremium_EP3\"}]'), if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), parse('[{\"label\":\"Flex Consumption FC1\",\"value\":\"FlexConsumption_FC1\"}]'), if(equals(steps('basics').functionAppKind, 'functionapp'), parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"Standard S1\",\"value\":\"Standard_S1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]'), parse('[{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]'))))]"
+										"allowedValues": "[if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), parse('[{\"label\":\"Elastic Premium EP1\",\"value\":\"ElasticPremium_EP1\"},{\"label\":\"Elastic Premium EP2\",\"value\":\"ElasticPremium_EP2\"},{\"label\":\"Elastic Premium EP3\",\"value\":\"ElasticPremium_EP3\"}]'), if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), parse('[{\"label\":\"Flex Consumption FC1\",\"value\":\"FlexConsumption_FC1\"}]'), if(equals(steps('basics').functionAppKind, 'functionapp'), parse('[{\"label\":\"Free F1\",\"value\":\"Free_F1\"},{\"label\":\"Shared D1\",\"value\":\"Shared_D1\"},{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"Basic B2\",\"value\":\"Basic_B2\"},{\"label\":\"Basic B3\",\"value\":\"Basic_B3\"},{\"label\":\"PremiumV3 P0V3\",\"value\":\"PremiumV3_P0V3\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"}]'), parse('[{\"label\":\"Free F1\",\"value\":\"Free_F1\"},{\"label\":\"Basic B1\",\"value\":\"Basic_B1\"},{\"label\":\"Basic B2\",\"value\":\"Basic_B2\"},{\"label\":\"Basic B3\",\"value\":\"Basic_B3\"},{\"label\":\"PremiumV3 P0V3\",\"value\":\"PremiumV3_P0V3\"},{\"label\":\"PremiumV3 P1V3\",\"value\":\"PremiumV3_P1V3\"},{\"label\":\"PremiumV3 P1mv3\",\"value\":\"PremiumV3_P1mv3\"},{\"label\":\"PremiumV3 P2V3\",\"value\":\"PremiumV3_P2V3\"},{\"label\":\"PremiumV3 P2mv3\",\"value\":\"PremiumV3_P2mv3\"},{\"label\":\"PremiumV3 P3V3\",\"value\":\"PremiumV3_P3V3\"},{\"label\":\"PremiumV3 P3mv3\",\"value\":\"PremiumV3_P3mv3\"},{\"label\":\"PremiumV3 P4mv3\",\"value\":\"PremiumV3_P4mv3\"},{\"label\":\"PremiumV3 P5mv3\",\"value\":\"PremiumV3_P5mv3\"}]'))))]"
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
 								},

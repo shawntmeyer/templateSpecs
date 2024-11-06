@@ -79,15 +79,24 @@ param hostingPlanResourceGroupName string = ''
 
 @description('Optional. The hosting plan pricing plan. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 @allowed([
-  'ElasticPremium_EP1'
-  'ElasticPremium_EP2'
-  'ElasticPremium_EP3'
+  'ElasticPremium_EP1' // Elastic Premium
+  'ElasticPremium_EP2' // Elastic Premium
+  'ElasticPremium_EP3' // Elastic Premium
   'FlexConsumption_FC1' // Preview - limited regional availability
-  'Basic_B1'
-  'Standard_S1'
-  'PremiumV3_P1V3'
-  'PremiumV3_P2V3'
-  'PremiumV3_P3V3'
+  'Free_F1' // App Service Plan
+  'Basic_B1' // App Service Plan
+  'Basic_B2' // App Service Plan
+  'Basic_B3' // App Service Plan
+  'PremiumV3_P0V3' // App Service Plan
+  'PremiumV3_P1V3' // App Service Plan
+  'PremiumV3_P1mv3' // App Service Plan, Linux Only
+  'PremiumV3_P2V3' // App Service Plan
+  'PremiumV3_P2mv3' // App Service Plan, Linux Only
+  'PremiumV3_P3V3' // App Service Plan
+  'PremiumV3_P3mv3' // App Service Plan, Linux Only
+  'PremiumV3_P4mv3' // App Service Plan, Linux Only
+  'PremiumV3_P5mv3' // App Service Plan, Linux Only
+  'Shared_D1' // App Service Plan, Windows Only
   ''
 ])
 param hostingPlanPricing string = ''
