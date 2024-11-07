@@ -17,24 +17,25 @@ param storageTableDnsZoneId string
 param tags object
 
 var storageAccountNameVar = deployStorageAccount ? storageAccountName : last(split(storageAccountId, '/'))
+var vnetName = split(storageAccountPrivateEndpointSubnetId, '/')[8]
 var storageAccountPrivateEndpoints = enableStoragePrivateEndpoints ? [
   {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'blob'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
+    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'blob'), 'VNET', vnetName)
     privateDnsZoneId: storageBlobDnsZoneId 
     service: 'blob'
   }
   {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'file'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
+    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'file'), 'VNET', vnetName)
     privateDnsZoneId: storageFileDnsZoneId
     service: 'file'
   }
   {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'queue'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
+    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'queue'), 'VNET', vnetName)
     privateDnsZoneId: storageQueueDnsZoneId
     service: 'queue'
   }
   {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'table'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
+    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'table'), 'VNET', vnetName)
     privateDnsZoneId: storageTableDnsZoneId
     service: 'table'
   }
@@ -144,7 +145,7 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
   }
 }
 
-resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints && !empty(storageAccountPrivateEndpointSubnetId)) {
+resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
   name: privateEndpoint.name
   location: location
   tags: tags[?'Microsoft.Network/privateEndpoints'] ?? {}

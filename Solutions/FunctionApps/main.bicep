@@ -118,6 +118,9 @@ param storageAccountName string = ''
 @description('Optional. Enable Application Insights for the function App.')
 param enableApplicationInsights bool = true
 
+@description('Optional. Associate the applications insights with an Azure Monitor Private Link Scope. Used only when enableApplicationInsights is set to true.')
+param privateLinkScopeResourceId string = ''
+
 @description('Optional. To enable diagnostics settings, provide the resource Id of the Log Analytics workspace where logs are to be sent.')
 param logAnalyticsWorkspaceId string = ''
 
@@ -258,7 +261,7 @@ var blobContainerName = 'app-package-${toLower(functionAppName)}'
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 
-var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'resourceName-service-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}-uniqueString' : '${resourceAbbreviations.privateEndpoints}-resourceName-service-${locations[location].abbreviation}-uniqueString'
+var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'RESOURCENAME-SERVICE-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}-VNET' : '${resourceAbbreviations.privateEndpoints}-RESOURCENAME-SERVICE-${locations[location].abbreviation}-VNET'
 var storageAccountSku = deployHostingPlan ? ( hostingPlanZoneRedundant ? 'Standard_ZRS' : 'Standard_LRS' ) : ( existingHostingPlan.properties.numberOfWorkers > 1 ? 'Standard_ZRS' : 'Standard_LRS' )
 
 var subnetOutbound = enableVnetIntegration ? [
@@ -400,11 +403,13 @@ module functionAppResources 'modules/functionApp.bicep' = {
     hostingPlanType: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlanType : existingHostingPlanType )
     hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : hostingPlanId )
     nameConvPrivEndpoints: nameConvPrivEndpoints
+    privateLinkScopeResourceId: privateLinkScopeResourceId
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion
     storageAccountResourceId: storageResources.outputs.storageAccountResourceId   
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     tags: tags
+    timestamp: timestamp
     instanceMemoryMB: flexConsumptionInstanceMemoryMB
     maximumInstanceCount: flexConsumptionMaximumInstanceCount
   }

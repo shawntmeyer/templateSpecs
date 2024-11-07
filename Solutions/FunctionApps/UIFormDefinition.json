@@ -1199,6 +1199,34 @@
 											}
 										]
 									}
+								},
+								{
+									"name": "privateLinkTextBlock1",
+									"type": "Microsoft.Common.TextBlock",
+									"visible": "[steps('monitoring').appInsights.enableApplicationInsights]",
+									"options": {
+										"text": "Azure Monitor is a constellation of different interconnected services that work together to monitor your workloads. An Azure Monitor private link connects a private endpoint to a set of Azure Monitor resources to define the boundaries of your monitoring network. That set is called an Azure Monitor Private Link Scope (AMPLS).",
+										"link": {
+											"label": "Use Azure Private Link to connect networks to Azure Monitor - Azure Monitor | Microsoft Learn",
+											"uri": "https://learn.microsoft.com/en-us/azure/azure-monitor/logs/private-link-security"
+										}
+									}
+								},
+								{
+									"name": "privateLink",
+									"type": "Microsoft.Common.CheckBox",
+									"label": "Attach AVD monitoring resources to an existing Azure Monitor Private Link Scope",
+									"visible": "[steps('monitoring').appInsights.enableApplicationInsights]"
+								},
+								{
+									"name": "azureMonitorPrivateLinkScope",
+									"type": "Microsoft.Solutions.ResourceSelector",
+									"label": "Azure Monitor Private Link Scope",
+									"resourceType": "Microsoft.Insights/privateLinkScopes",
+									"constraints": {
+										"required": true
+									},
+									"visible": "[steps('monitoring').appInsights.privateLink]"
 								}
 							]
 						}
@@ -1271,6 +1299,7 @@
 				"storageTableDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
 				"logAnalyticsWorkspaceId": "[if(equals(steps('monitoring').diagnostics.enableDiagnostics, true), steps('monitoring').diagnostics.logAnalyticsWorkspace.id, '')]",
 				"enableApplicationInsights": "[steps('monitoring').appInsights.enableApplicationInsights]",
+				"privateLinkScopeResourceId": "[if(steps('monitoring').appInsights.privateLink, steps('monitoring').appInsights.azureMonitorPrivateLinkScope.id, '')]",
 				"tags": "[steps('tags').tags]"
 			}
 		}

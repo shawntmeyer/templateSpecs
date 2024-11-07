@@ -12,12 +12,14 @@ param functionAppKind string
 param functionAppPrivateDnsZoneId string
 param logAnalyticsWorkspaceId string
 param maximumInstanceCount int
+param privateLinkScopeResourceId string
 param instanceMemoryMB int
 param nameConvPrivEndpoints string
 param runtimeVersion string
 param runtimeStack string
 param storageAccountResourceId string
 param tags object
+param timestamp string
 
 // existing resources
 
@@ -184,6 +186,18 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (en
   tags: tags[?'Microsoft.Insights/components'] ?? {}
 }
 
+module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if(enableApplicationInsights && !empty(privateLinkScopeResourceId)) {
+  name: 'PrivateLlinkScope-${timestamp}'
+  scope: subscription()
+  params: {
+    privateLinkScopeResourceId: privateLinkScopeResourceId
+    scopedResourceIds: [
+      applicationInsights.id
+    ]
+    timeStamp: timestamp
+  }
+}
+
 resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   name: functionAppName
   identity: hostingPlanType == 'AppServicePlan' || hostingPlanType == 'FlexConsumption'
@@ -245,9 +259,9 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
 
 resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if (enableInboundPrivateEndpoint) {
   name: replace(
-    replace(replace(nameConvPrivEndpoints, 'resourceName', functionAppName), 'service', 'sites'),
-    '-uniqueString',
-    uniqueString(functionAppInboundSubnetId)
+    replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', functionAppName), 'SERVICE', 'sites'),
+    'VNET',
+    split(functionAppInboundSubnetId, '/')[8]
   )
   location: location
   properties: {
@@ -261,23 +275,21 @@ resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02
       }
     ]
     subnet: {
-      id: !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : null
+      id: functionAppInboundSubnetId
     }
   }
   tags: tags[?'Microsoft.Network/privateEndpoints'] ?? {}
 }
 
-resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if (enableInboundPrivateEndpoint) {
+resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if (enableInboundPrivateEndpoint && !empty(functionAppPrivateDnsZoneId)) {
   name: '${functionApp_PrivateEndpoint.name}-group'
   parent: functionApp_PrivateEndpoint
   properties: {
     privateDnsZoneConfigs: [
       {
-        name: !empty(functionAppPrivateDnsZoneId) ? '${last(split(functionAppPrivateDnsZoneId, '/'))}-config' : null
+        name: !empty(functionAppPrivateDnsZoneId) ? '${last(split(functionAppPrivateDnsZoneId, '/'))}-config' : ''
         properties: {
-          privateDnsZoneId: enablePublicAccess || empty(functionAppPrivateDnsZoneId)
-            ? null
-            : functionAppPrivateDnsZoneId
+          privateDnsZoneId: functionAppPrivateDnsZoneId
         }
       }
     ]
