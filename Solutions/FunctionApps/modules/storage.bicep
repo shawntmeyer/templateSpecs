@@ -144,7 +144,7 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
   }
 }
 
-resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
+resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints && !empty(storageAccountPrivateEndpointSubnetId)) {
   name: privateEndpoint.name
   location: location
   tags: tags[?'Microsoft.Network/privateEndpoints'] ?? {}
@@ -164,13 +164,13 @@ resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@202
   }
 }]
 
-resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
+resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints && !empty(storageAccountPrivateEndpoints[i].privateDnsZoneId)) {
   name: '${privateEndpoint.name}-group'
   parent: storageAccount_privateEndpoints[i]
   properties: {
     privateDnsZoneConfigs: [
       {
-        name: '${last(split(privateEndpoint.privateDnsZoneId, '/'))}-config'
+        name: !empty(privateEndpoint.privateDnsZoneId) ? '${last(split(privateEndpoint.privateDnsZoneId, '/'))}-config' : ''
         properties: {
           privateDnsZoneId: privateEndpoint.privateDnsZoneId
         }

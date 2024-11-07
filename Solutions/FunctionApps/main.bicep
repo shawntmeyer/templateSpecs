@@ -68,16 +68,16 @@ There are three basic Azure Functions hosting plans provided by Azure Functions:
 ])
 param hostingPlanType string = ''
 
-@description('Conditional. The resource Id of the existing server farm to use for the function App.')
+@description('Conditional. The resource Id of the existing server farm to use for the function App. Required when "deployHostingPlan" is set to false and hostingPlanType is not set to "Consumption".')
 param hostingPlanId string = ''
 
-@description('Conditional. The name of the service plan used by the function App. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
+@description('Conditional. The name of the service plan used by the function App. Required when "deployHostingPlan" is set to true and hostingPlanType is not set to "Consumption".')
 param hostingPlanName string = ''
 
-@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
+@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Required when "deployHostingPlan" is set to true and hostingPlanType is not set to "Consumption".')
 param hostingPlanResourceGroupName string = ''
 
-@description('Optional. The hosting plan pricing plan. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
+@description('Conditional. The hosting plan pricing plan. Required when "deployHostingPlan" is set to true and hostingPlanType is not set to "Consumption".')
 @allowed([
   'ElasticPremium_EP1' // Elastic Premium
   'ElasticPremium_EP2' // Elastic Premium
@@ -107,7 +107,7 @@ param hostingPlanZoneRedundant bool = false
 @description('Optional. Determines whether an existing storage account is used or a new one is deployed. If set to true, the "storageAccountName" parameter must be provided. If set to false, the "storageAccountId" parameter must be provided.')
 param deployStorageAccount bool = true
 
-@description('Conditional. The resource Id of the existing storage account to be used with the logic app.')
+@description('Conditional. The resource Id of the existing storage account to be used with the logic app. Required when "deployStorageAccount" is set to false.')
 param storageAccountId string = ''
 
 @description('Conditional. The name of the storage account used by the function App. Required if "deployStorageAccount" is set to true.')
@@ -129,7 +129,7 @@ param enablePublicAccess bool = true
 @description('Optional. Indicates whether the function App should be accessible via a private endpoint.')
 param enableInboundPrivateEndpoint bool = false
 
-@description('Optional. Indicates whether outbound traffic from the function App should be routed through a private endpoint.')
+@description('Optional. Indicates whether outbound traffic from the function App should be routed over a vnet.')
 param enableVnetIntegration bool = true
 
 @description('Optional. Indicates whether a new Vnet and associated resources should be deployed to support the hosting plan and function app.')
@@ -137,13 +137,13 @@ param deployNetworking bool = false
 
 //  existing Subnets
 
-@description('Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when "enableInboundPrivateEndpoint" is set to false and you aren\'t creating a new vnet and subnets.')
+@description('Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when "enableInboundPrivateEndpoint" is set to true and "deployNetworking" is set to false.')
 param functionAppInboundSubnetId string = ''
 
-@description('Conditional. The resource Id of the subnet used by the function App for outbound traffic. Required when "enableVnetIntegration" is set to true and you aren\'t creating a new vnet and subnets.')
+@description('Conditional. The resource Id of the subnet used by the function App for outbound traffic. Required when "enableVnetIntegration" is set to true and "deployNetworking" is set to false.')
 param functionAppOutboundSubnetId string = ''
 
-@description('Conditional The resource Id of the private Endpoint Subnet. Required when "enableVnetIntegration" is set to true and you aren\'t creating a new vnet and subnets.')
+@description('Conditional The resource Id of the private Endpoint Subnet. Required when "enableStoragePrivateEndpoints" is set to true and "deployNetworking" is set to false.')
 param storagePrivateEndpointSubnetId string = ''
 
 //  new Virtual Network (only used when the existing subnets aren't specified. Fill in all values where needed.)
@@ -181,19 +181,19 @@ param functionAppInboundSubnetAddressPrefix string = '10.0.2.0/24'
 
 // Private DNS Zones
 
-@description('Conditional. The resource Id of the function app private DNS Zone. Required when "enableInboundPrivateEndpoint" = true and "deployNetworking" = false.')
+@description('Optional. The resource Id of the function app private DNS Zone. Required when "enableInboundPrivateEndpoint" = true and "deployNetworking" = false.')
 param functionAppPrivateDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the blob storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
+@description('Optional. The resource Id of the blob storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageBlobDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the file storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
+@description('Optional. The resource Id of the file storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageFileDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the queue storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
+@description('Optional. The resource Id of the queue storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageQueueDnsZoneId string = ''
 
-@description('Conditional. The resource Id of the table storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
+@description('Optional. The resource Id of the table storage Private DNS Zone. Required when "enableVnetIntegration" and "enableStoragePrivateEndpoints" = true and "deployNetworking = false.')
 param storageTableDnsZoneId string = ''
 
 // tags
@@ -253,7 +253,7 @@ var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
   'privatelink.${privateDnsZoneSuffixes_AzureWebSites[environment().name] ?? 'appservice.${cloudSuffix}'}'
 ] : []
 
-var existingHostingPlanType = !empty(existingHostingPlan) ? ( contains(existingHostingPlan.sku.tier, 'Flex') ? 'FlexConsumption' : (contains(existingHostingPlan.sku.tier, 'Elastic') ? 'FunctionsPremium' : 'AppServicePlan' ) ) : ''
+var existingHostingPlanType = !empty(existingHostingPlan) ? ( contains(existingHostingPlan.sku.tier, 'Flex') ? 'FlexConsumption' : ( contains(existingHostingPlan.sku.tier, 'Elastic') ? 'FunctionsPremium' : 'AppServicePlan' ) ) : ''
 var blobContainerName = 'app-package-${toLower(functionAppName)}'
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
@@ -373,12 +373,12 @@ module storageResources 'modules/storage.bicep' = {
     nameConvPrivEndpoints: nameConvPrivEndpoints
     storageAccountId: storageAccountId
     storageAccountName: storageAccountName
-    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( !empty(storagePrivateEndpointSubnetId) ? storagePrivateEndpointSubnetId : networking.outputs.subnetIds[1] ) : ''
+    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.subnetIds[1] : storagePrivateEndpointSubnetId  ) : ''
     storageAccountSku: storageAccountSku 
-    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageBlobDnsZoneId) ? storageBlobDnsZoneId : networking.outputs.privateDnsZoneIds[0] ) : ''
-    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageFileDnsZoneId) ? storageFileDnsZoneId : networking.outputs.privateDnsZoneIds[1] ) : ''
-    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageQueueDnsZoneId) ? storageQueueDnsZoneId : networking.outputs.privateDnsZoneIds[2] ) : ''
-    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( !empty(storageTableDnsZoneId) ? storageTableDnsZoneId : networking.outputs.privateDnsZoneIds[3] ) : ''
+    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[0] : storageBlobDnsZoneId  ) : ''
+    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[1] : storageFileDnsZoneId ) : ''
+    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[2] : storageQueueDnsZoneId ) : ''
+    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[3] : storageTableDnsZoneId ) : ''
     tags: tags
   }
 }
@@ -394,11 +394,11 @@ module functionAppResources 'modules/functionApp.bicep' = {
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
     functionAppKind: functionAppKind
     functionAppName: functionAppName
-    functionAppOutboundSubnetId: enableVnetIntegration ? ( !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : networking.outputs.subnetIds[0] ) : ''
-    functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : networking.outputs.subnetIds[2] ) : ''    
-    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( !empty(functionAppPrivateDnsZoneId) ? functionAppPrivateDnsZoneId : networking.outputs.privateDnsZoneIds[4] ) : ''
+    functionAppOutboundSubnetId: enableVnetIntegration ? ( deployNetworking ? networking.outputs.subnetIds[0] : functionAppOutboundSubnetId ) : ''
+    functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( deployNetworking ? networking.outputs.subnetIds[2] : functionAppInboundSubnetId ) : ''    
+    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[4] : functionAppPrivateDnsZoneId ) : ''
     hostingPlanType: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlanType : existingHostingPlanType )
-    hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( !empty(hostingPlanId) ? hostingPlanId : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : '' ))
+    hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : hostingPlanId )
     nameConvPrivEndpoints: nameConvPrivEndpoints
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion
