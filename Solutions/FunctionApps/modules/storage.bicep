@@ -53,7 +53,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
     allowBlobPublicAccess: false
     allowedCopyScope: 'PrivateLink'
     allowCrossTenantReplication: false
-    allowSharedKeyAccess: false
+    allowSharedKeyAccess: hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption' ? true : false
     defaultToOAuthAuthentication: false
     encryption: {
       keySource: 'Microsoft.Storage'
