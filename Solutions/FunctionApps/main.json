@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.30.23.60470",
-      "templateHash": "13968015292434228743"
+      "templateHash": "14715752491103911752"
     }
   },
   "parameters": {
@@ -1199,7 +1199,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.30.23.60470",
-              "templateHash": "13531891230882469170"
+              "templateHash": "10827018650360386912"
             }
           },
           "parameters": {
@@ -1294,7 +1294,7 @@
                 "allowBlobPublicAccess": false,
                 "allowedCopyScope": "PrivateLink",
                 "allowCrossTenantReplication": false,
-                "allowSharedKeyAccess": false,
+                "allowSharedKeyAccess": "[if(and(not(equals(parameters('hostPlanType'), 'AppServicePlan')), not(equals(parameters('hostPlanType'), 'FlexConsumption'))), true(), false())]",
                 "defaultToOAuthAuthentication": false,
                 "encryption": {
                   "keySource": "Microsoft.Storage",
