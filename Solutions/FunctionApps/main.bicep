@@ -138,6 +138,12 @@ param enableVnetIntegration bool = true
 @description('Optional. Indicates whether a new Vnet and associated resources should be deployed to support the hosting plan and function app.')
 param deployNetworking bool = false
 
+@description('Optional. Indicates whether private DNS zones should be created for the function App.')
+param deployFunctionAppPrivateDnsZone bool = false
+
+@description('Optional. Indicates whether private DNS zones should be created for the storage account.')
+param deployStoragePrivateDnsZones bool = false
+
 //  existing Subnets
 
 @description('Conditional. The resource Id of the subnet used by the function App for inbound traffic. Required when "enableInboundPrivateEndpoint" is set to true and "deployNetworking" is set to false.')
@@ -332,7 +338,7 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
     location: location
-    privateDnsZoneNames: union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName)
+    privateDnsZoneNames: deployStoragePrivateDnsZones ? ( deployFunctionAppPrivateDnsZone ? union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName) : storagePrivateDnsZoneNames ) : ( deployFunctionAppPrivateDnsZone ? webSitePrivateDnsZoneName : [] )
     subnets: union(subnetOutbound, subnetStoragePrivateEndpoints, subnetInboundPrivateEndpoint)
     timestamp: timestamp
     vnetName: vnetName
@@ -378,10 +384,10 @@ module storageResources 'modules/storage.bicep' = {
     storageAccountName: storageAccountName
     storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.subnetIds[1] : storagePrivateEndpointSubnetId  ) : ''
     storageAccountSku: storageAccountSku 
-    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[0] : storageBlobDnsZoneId  ) : ''
-    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[1] : storageFileDnsZoneId ) : ''
-    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[2] : storageQueueDnsZoneId ) : ''
-    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[3] : storageTableDnsZoneId ) : ''
+    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[0] : '' ) : storageBlobDnsZoneId  ) : ''
+    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[1] : '' ) : storageFileDnsZoneId ) : ''
+    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[2] : '' ) : storageQueueDnsZoneId ) : ''
+    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[3] : '' ) : storageTableDnsZoneId ) : ''
     tags: tags
   }
 }
@@ -399,7 +405,7 @@ module functionAppResources 'modules/functionApp.bicep' = {
     functionAppName: functionAppName
     functionAppOutboundSubnetId: enableVnetIntegration ? ( deployNetworking ? networking.outputs.subnetIds[0] : functionAppOutboundSubnetId ) : ''
     functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( deployNetworking ? networking.outputs.subnetIds[2] : functionAppInboundSubnetId ) : ''    
-    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking ? networking.outputs.privateDnsZoneIds[4] : functionAppPrivateDnsZoneId ) : ''
+    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking ? ( deployFunctionAppPrivateDnsZone ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[4] : networking.outputs.privateDnsZoneIds[0] ) : '' ) : functionAppPrivateDnsZoneId ) : ''
     hostingPlanType: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlanType : existingHostingPlanType )
     hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : hostingPlanId )
     nameConvPrivEndpoints: nameConvPrivEndpoints

@@ -28,7 +28,7 @@ resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for sub
   properties: subnet.properties
 }]
 
-module privateDnsZones 'privateDnsZones.bicep' = {
+module privateDnsZones 'privateDnsZones.bicep' = if(!empty(privateDnsZoneNames)) {
   name: 'privateDns-virtualNetworkLinks-${timestamp}'
   params: {
     privateDnsZoneNames: privateDnsZoneNames

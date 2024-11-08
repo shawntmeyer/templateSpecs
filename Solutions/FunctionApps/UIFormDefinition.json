@@ -502,20 +502,20 @@
 					"elements": [
 						{
 							"name": "faPrivateDnsZonesApi",
-							"condition": "[not(empty(steps('networking').inboundAccess.PrivateDNSZonesSubscription))]",
+							"condition": "[not(empty(steps('networking').inboundAccess.PrivateDnsZonesSubscription))]",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('networking').inboundAccess.PrivateDNSZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
+								"path": "[concat(steps('networking').inboundAccess.PrivateDnsZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
 							}
 						},
 						{
 							"name": "saPrivateDnsZonesApi",
-							"condition": "[not(empty(steps('networking').storagePrivateEndpoints.PrivateDNSZonesSubscription))]",
+							"condition": "[not(empty(steps('networking').storagePrivateEndpoints.PrivateDnsZonesSubscription))]",
 							"type": "Microsoft.Solutions.ArmApiControl",
 							"request": {
 								"method": "GET",
-								"path": "[concat(steps('networking').storagePrivateEndpoints.PrivateDNSZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
+								"path": "[concat(steps('networking').storagePrivateEndpoints.PrivateDnsZonesSubscription, '/providers/Microsoft.Network/privateDnsZones?api-version=2018-09-01')]"
 							}
 						},
 						{
@@ -670,7 +670,7 @@
 									"placeholder": "vnet-functionapps-<env>-<region>",
 									"toolTip": "Specify the name of the new Virtual Network to create for Function App Virtual Network Integration. This vnet and associated resources will be deployed to the resource group selected in the 'Hosting Plan' section of the 'Basics' blade.",
 									"constraints": {
-										"required": false,
+										"required": true,
 										"regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}[a-zA-Z0-9_]?$",
 										"validationMessage": "String value must be between 2 and 64 characters long, consist of only alphanumeric characters, underscores, periods, and hyphens. It must also start with an alphanumeric character and end with alphanumeric character or underscore."
 									},
@@ -780,20 +780,31 @@
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE)]"
 								},
 								{
-									"name": "privateDNSInfoBox",
-									"type": "Microsoft.Common.InfoBox",
-									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE)]",
-									"options": {
-										"icon": "Info",
-										"text": "With the use of Private Endpoints, the environment-specific 'azurewebsites' Private DNS zone will be created and linked to the new Virtual Network."
-									}
-								},
+									"name": "deployPrivateDnsZone",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Deploy and link Private DNS Zone",
+									"defaultValue": "Yes",
+									"toolTip": "Choose 'Yes' to deploy the Azure Web Sites private DNS Zone and link it to the new Virtual Network.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									},
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE)]"
+								},								
 								{
 									"name": "enablePrivateDNS",
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "DNS",
 									"defaultValue": "Azure Private DNS Zone",
-									"toolTip": "Choose 'Azure Private DNS Zone' to register the private endpoints with Azure Private DNS Zones. If you are deploying a new virtual network, a new Private DNS Zone will be created in the Network resource group chosen above.",
+									"toolTip": "Choose 'Azure Private DNS Zone' to register the private endpoints with Azure Private DNS Zones.",
 									"constraints": {
 										"allowedValues": [
 											{
@@ -809,7 +820,7 @@
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE)]"
 								},
 								{
-									"name": "PrivateDNSZonesSubscription",
+									"name": "PrivateDnsZonesSubscription",
 									"type": "Microsoft.Common.DropDown",
 									"label": "Private DNS Zones Subscription",
 									"placeholder": "",
@@ -1000,14 +1011,25 @@
 									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE)]"
 								},
 								{
-									"name": "privateDNSInfoBox",
-									"type": "Microsoft.Common.InfoBox",
-									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE)]",
-									"options": {
-										"icon": "Info",
-										"text": "With the use of Private Endpoints, the environment-specific storage account 'blob', 'file', 'queue', and 'table' Private DNS zones will be created and linked to the new Virtual Network."
-									}
-								},
+									"name": "deployPrivateDnsZone",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Deploy and link Private DNS Zones",
+									"defaultValue": "Yes",
+									"toolTip": "Choose 'Yes' to deploy the Azure blob, file, queue, and table storage private DNS Zones and link them to the new Virtual Network.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									},
+									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE)]"
+								},								
 								{
 									"name": "snetTextBlock",
 									"type": "Microsoft.Common.TextBlock",
@@ -1048,7 +1070,7 @@
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE)]"
 								},
 								{
-									"name": "PrivateDNSZonesSubscription",
+									"name": "PrivateDnsZonesSubscription",
 									"type": "Microsoft.Common.DropDown",
 									"label": "Private DNS Zones Subscription",
 									"placeholder": "",
@@ -1277,7 +1299,7 @@
 				"storageAccountName": "[if(steps('storage').newStorageAccount, steps('storage').name, '')]",
 				"enablePublicAccess": "[steps('networking').publicAccess]",
 				"deployNetworking": "[if(steps('networking').networkInjection, steps('networking').virtualNetwork.newVNet, false)]",
-				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",
+				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",				
 				"enableVNetIntegration": "[if(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration, false)]",
 				"functionAppInboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
 				"functionAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
@@ -1288,10 +1310,12 @@
 				"vnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
 				"functionAppInboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
 				"functionAppInboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
+				"deployFunctionAppDnsZone": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.deployPrivateDnsZone, false)]",
 				"functionAppOutboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.subnetName, '')]",
 				"functionAppOutboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.snetAddressPrefix, '')]",
 				"storagePrivateEndpointSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
 				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",
+				"deployStoragePrivateDnsZones": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.deployPrivateDnsZone, false)]",
 				"functionAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), equals(steps('networking').publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
 				"storageBlobDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
 				"storageFileDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
