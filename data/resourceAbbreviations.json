@@ -12,6 +12,7 @@
     "hostPools": "vdpool",
     "keyVaults": "kv",
     "logAnalyticsWorkspaces": "law",
+    "natGateways": "ng",
     "netAppAccounts": "naa",
     "netAppCapacityPools": "nacp",
     "networkInterfaces": "nic",

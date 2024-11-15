@@ -17,29 +17,28 @@ param storageTableDnsZoneId string
 param tags object
 
 var storageAccountNameVar = deployStorageAccount ? storageAccountName : last(split(storageAccountId, '/'))
-var vnetName = split(storageAccountPrivateEndpointSubnetId, '/')[8]
-var storageAccountPrivateEndpoints = enableStoragePrivateEndpoints ? [
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'blob'), 'VNET', vnetName)
-    privateDnsZoneId: storageBlobDnsZoneId 
-    service: 'blob'
-  }
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'file'), 'VNET', vnetName)
-    privateDnsZoneId: storageFileDnsZoneId
-    service: 'file'
-  }
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'queue'), 'VNET', vnetName)
-    privateDnsZoneId: storageQueueDnsZoneId
-    service: 'queue'
-  }
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'table'), 'VNET', vnetName)
-    privateDnsZoneId: storageTableDnsZoneId
-    service: 'table'
-  }
-] : []
+var vnetName = !empty(storageAccountPrivateEndpointSubnetId) ? split(storageAccountPrivateEndpointSubnetId, '/')[8] : ''
+var blobPE = !empty(storageBlobDnsZoneId) ? [{
+  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'blob'), 'VNET', vnetName)
+  privateDnsZoneId: storageBlobDnsZoneId
+  service: 'blob'
+}] : []
+var filePE = !empty(storageFileDnsZoneId) ? [{
+  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'file'), 'VNET', vnetName)
+  privateDnsZoneId: storageFileDnsZoneId
+  service: 'file'
+}] : []
+var queuePE = !empty(storageQueueDnsZoneId) ? [{
+  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'queue'), 'VNET', vnetName)
+  privateDnsZoneId: storageQueueDnsZoneId
+  service: 'queue'
+}] : []
+var tablePE = !empty(storageTableDnsZoneId) ? [{
+  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'table'), 'VNET', vnetName)
+  privateDnsZoneId: storageTableDnsZoneId
+  service: 'table'
+}] : []
+var storageAccountPrivateEndpoints = enableStoragePrivateEndpoints && !empty(vnetName) ? union(blobPE, filePE, queuePE, tablePE) : []
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(deployStorageAccount) {
   name: storageAccountNameVar
@@ -93,8 +92,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
   }
   resource fileServices 'fileServices' = if(hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption') {
     name: 'default'
-  }
-  
+  }  
 }
 
 resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(deployStorageAccount && hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption') {
