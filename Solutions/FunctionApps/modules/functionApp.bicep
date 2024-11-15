@@ -245,13 +245,13 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
             : null
         }
     virtualNetworkSubnetId: !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : null
-    vnetImagePullEnabled: hostingPlanType == 'FlexConsumption'
+    vnetImagePullEnabled: hostingPlanType == 'FlexConsumption' || hostingPlanType == 'Consumption'
       ? null
       : !empty(functionAppOutboundSubnetId) ? true : false
-    vnetContentShareEnabled: hostingPlanType == 'AppServicePlan' || hostingPlanType == 'FlexConsumption'
+    vnetContentShareEnabled: hostingPlanType != 'FunctionsPremium'
       ? null
       : !empty(functionAppOutboundSubnetId) ? true : false
-    vnetRouteAllEnabled: hostingPlanType == 'FlexConsumption'
+    vnetRouteAllEnabled: hostingPlanType == 'FlexConsumption' || hostingPlanType == 'Consumption'
       ? null
       : !empty(functionAppOutboundSubnetId) ? true : false
   }
@@ -316,8 +316,6 @@ resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@
   scope: functionApp
 }
 
-var storageRoleDefinitionId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b' //Storage Blob Data Owner role
-
 // Allow access from function app to storage account using a managed identity
 module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' = if (hostingPlanType == 'AppServicePlan' || hostingPlanType == 'FlexConsumption') {
   name: 'roleAssignment-storageAccount'
@@ -325,6 +323,6 @@ module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' 
   params: {
     principalId: functionApp.identity.principalId
     storageAccountResourceId: storageAccountResourceId
-    roleDefinitionId: storageRoleDefinitionId
+    roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor role
   }
 }

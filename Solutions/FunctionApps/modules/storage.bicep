@@ -75,12 +75,12 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
     }
     largeFileSharesState: 'Enabled'
     minimumTlsVersion: 'TLS1_2'
-    networkAcls: {
+    networkAcls: enableStoragePrivateEndpoints ? {
       bypass: 'AzureServices'
       defaultAction: 'Deny'
       ipRules: []
       virtualNetworkRules: []
-    }
+    } : null
     publicNetworkAccess: enableStoragePrivateEndpoints ? 'Disabled' : 'Enabled'
     sasPolicy: {
       expirationAction: 'Log'

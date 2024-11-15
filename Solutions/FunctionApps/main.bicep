@@ -47,11 +47,11 @@ param flexConsumptionMaximumInstanceCount int = 100
 
 // Hosting Plan
 
-@description('Required. Determines whether or not a new host plan is deployed. If set to false and the host plan type is not "Consumption", then the "hostingPlanId" parameter must be provided.')
+@description('Required. Determines whether or not a new host plan is deployed. If set to false then the "hostingPlanId" parameter must be provided.')
 param deployHostingPlan bool
 
 @description('''Conditional. When you create a function app in Azure, you must choose a hosting plan for your app.
-There are three basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Premium plan, and Dedicated (App Service) plan. 
+There are four basic Azure Functions hosting plans provided by Azure Functions: Consumption plan, Flex Consumption, Premium plan, and Dedicated (App Service) plan. 
 * Consumption: Scale automatically and only pay for compute resources when your functions are running.
 * FlexConsumption: Flex Consumption is a Linux-based Azure Functions hosting plan that builds on the Consumption pay for what you use serverless billing model. It gives you more flexibility and customizability by introducing private networking, instance memory size selection, and fast/large scale-out features still based on a serverless model.
 * FunctionsPremium: Automatically scales based on demand using pre-warmed workers, which run applications with no delay after being idle, runs on more powerful instances, and connects to virtual networks.
@@ -64,21 +64,21 @@ There are three basic Azure Functions hosting plans provided by Azure Functions:
   'FlexConsumption' // Preview - limited regional availability
   'FunctionsPremium'
   'AppServicePlan'
-  ''
 ])
-param hostingPlanType string = ''
+param hostingPlanType string = 'Consumption'
 
-@description('Conditional. The resource Id of the existing server farm to use for the function App. Required when "deployHostingPlan" is set to false and hostingPlanType is not set to "Consumption".')
+@description('Conditional. The resource Id of the existing server farm to use for the function App. Required when "deployHostingPlan" is set to false.')
 param hostingPlanId string = ''
 
-@description('Conditional. The name of the service plan used by the function App. Required when "deployHostingPlan" is set to true and hostingPlanType is not set to "Consumption".')
+@description('Conditional. The name of the service plan used by the function App. Required when "deployHostingPlan" is set to true.')
 param hostingPlanName string = ''
 
-@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Required when "deployHostingPlan" is set to true and hostingPlanType is not set to "Consumption".')
+@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Required when "deployHostingPlan" is set to true.')
 param hostingPlanResourceGroupName string = ''
 
 @description('Conditional. The hosting plan pricing plan. Required when "deployHostingPlan" is set to true and hostingPlanType is not set to "Consumption".')
 @allowed([
+  'Dynamic_Y1' // Consumption Plan
   'ElasticPremium_EP1' // Elastic Premium
   'ElasticPremium_EP2' // Elastic Premium
   'ElasticPremium_EP3' // Elastic Premium
@@ -97,9 +97,8 @@ param hostingPlanResourceGroupName string = ''
   'PremiumV3_P4mv3' // App Service Plan, Linux Only
   'PremiumV3_P5mv3' // App Service Plan, Linux Only
   'Shared_D1' // App Service Plan, Windows Only
-  ''
 ])
-param hostingPlanPricing string = ''
+param hostingPlanPricing string = 'Dynamic_Y1'
 
 @description('Optional. Determines if the hosting plan is zone redundant. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 param hostingPlanZoneRedundant bool = false
@@ -262,7 +261,7 @@ var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
   'privatelink.${privateDnsZoneSuffixes_AzureWebSites[environment().name] ?? 'appservice.${cloudSuffix}'}'
 ] : []
 
-var existingHostingPlanType = !empty(existingHostingPlan) ? ( contains(existingHostingPlan.sku.tier, 'Flex') ? 'FlexConsumption' : ( contains(existingHostingPlan.sku.tier, 'Elastic') ? 'FunctionsPremium' : 'AppServicePlan' ) ) : ''
+var existingHostingPlanType = !empty(existingHostingPlan) ? ( contains(existingHostingPlan.sku.tier, 'Flex') ? 'FlexConsumption' : ( contains(existingHostingPlan.sku.tier, 'Elastic') ? 'FunctionsPremium' : ( existingHostingPlan.sku.tier == 'Dynamic' ? 'Consumption' : 'AppServicePlan' ) ) ) : ''
 var blobContainerName = 'app-package-${toLower(functionAppName)}'
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
@@ -355,11 +354,11 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
   scope: resourceGroup(resourceGroupNameHostingPlan)
   params: {
     functionAppKind: functionAppKind
-    hostingPlanType: hostingPlanType!
+    hostingPlanType: hostingPlanType
     location: location
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     name: hostingPlanName
-    planPricing: hostingPlanPricing!
+    planPricing: hostingPlanPricing
     tags: tags
     zoneRedundant: hostingPlanZoneRedundant
   }
@@ -376,7 +375,7 @@ module storageResources 'modules/storage.bicep' = {
     containerName: blobContainerName
     deployStorageAccount: deployStorageAccount
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
-    fileShareName: deployHostingPlan ? ( hostingPlanType != 'AppServicePlan' ? toLower(functionAppName) : '' ) : ( existingHostingPlanType != 'AppServicePlan' ? toLower(functionAppName) : '' )
+    fileShareName: (deployHostingPlan && (hostingPlanType == 'Consumption' || hostingPlanType == 'FunctionsPremium')) || (!deployHostingPlan && (existingHostingPlanType != 'Consumption' || existingHostingPlanType == 'FunctionsPremium')) ? toLower(functionAppName) : ''
     hostPlanType: deployHostingPlan ? hostingPlanType : existingHostingPlanType
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     nameConvPrivEndpoints: nameConvPrivEndpoints
@@ -384,10 +383,10 @@ module storageResources 'modules/storage.bicep' = {
     storageAccountName: storageAccountName
     storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.subnetIds[1] : storagePrivateEndpointSubnetId  ) : ''
     storageAccountSku: storageAccountSku 
-    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[0] : '' ) : storageBlobDnsZoneId  ) : ''
-    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[1] : '' ) : storageFileDnsZoneId ) : ''
-    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[2] : '' ) : storageQueueDnsZoneId ) : ''
-    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[3] : '' ) : storageTableDnsZoneId ) : ''
+    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.blob.'))) : storageBlobDnsZoneId ) : ''
+    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.file.'))) : storageFileDnsZoneId ) : ''
+    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.queue.'))) : storageQueueDnsZoneId ) : ''
+    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.table.'))) : storageTableDnsZoneId ) : ''
     tags: tags
   }
 }
@@ -405,9 +404,9 @@ module functionAppResources 'modules/functionApp.bicep' = {
     functionAppName: functionAppName
     functionAppOutboundSubnetId: enableVnetIntegration ? ( deployNetworking ? networking.outputs.subnetIds[0] : functionAppOutboundSubnetId ) : ''
     functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( deployNetworking ? networking.outputs.subnetIds[2] : functionAppInboundSubnetId ) : ''    
-    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking ? ( deployFunctionAppPrivateDnsZone ? ( deployStoragePrivateDnsZones ? networking.outputs.privateDnsZoneIds[4] : networking.outputs.privateDnsZoneIds[0] ) : '' ) : functionAppPrivateDnsZoneId ) : ''
-    hostingPlanType: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlanType : existingHostingPlanType )
-    hostingPlanId: hostingPlanType == 'Consumption' ? '' : ( deployHostingPlan ? hostingPlan.outputs.hostingPlanId : hostingPlanId )
+    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking && deployFunctionAppPrivateDnsZone ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, webSitePrivateDnsZoneName))) : functionAppPrivateDnsZoneId ) : ''
+    hostingPlanType: deployHostingPlan ? hostingPlanType : existingHostingPlanType
+    hostingPlanId: deployHostingPlan ? hostingPlan.outputs.hostingPlanId : hostingPlanId
     nameConvPrivEndpoints: nameConvPrivEndpoints
     privateLinkScopeResourceId: privateLinkScopeResourceId
     runtimeStack: runtimeStack
