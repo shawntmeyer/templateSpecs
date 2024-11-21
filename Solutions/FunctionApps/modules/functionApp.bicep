@@ -46,16 +46,7 @@ var linuxRuntimeStack = contains(functionsWorkerRuntime, 'dotnet')
           ? 'PowerShell'
           : runtimeStack == 'python' ? 'Python' : runtimeStack == 'java' ? 'Java' : null
 
-var websiteRunFromPackageAppSettings = empty(blobContainerName)
-  ? []
-  : [
-      {
-        name: 'WEBSITE_RUN_FROM_PACKAGE'
-        value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}/${blobContainerName}/'
-      }
-    ]
-var noFileShareAppSettings = union(
-  [
+var noFileShareAppSettings = [
     {
       name: 'AzureWebJobsStorage__blobServiceUri'
       value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
@@ -84,9 +75,7 @@ var noFileShareAppSettings = union(
       name: 'WEBSITE_LOAD_USER_PROFILE'
       value: '1'
     }
-  ],
-  websiteRunFromPackageAppSettings
-)
+  ]
 
 var fileShareAppSettings = [
   {
