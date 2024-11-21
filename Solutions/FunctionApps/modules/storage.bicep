@@ -90,12 +90,12 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
   resource blobServices 'blobServices' = {
     name: 'default'    
   }
-  resource fileServices 'fileServices' = if(hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption') {
+  resource fileServices 'fileServices' = if(!empty(fileShareName)) {
     name: 'default'
   }  
 }
 
-resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(deployStorageAccount && hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption') {
+resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(deployStorageAccount && !empty(fileShareName)) {
   name: fileShareName
   parent: storageAccount::fileServices
   properties: {
@@ -104,7 +104,7 @@ resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@
   }
 }
 
-resource blobContainerNewAccount 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = if (deployStorageAccount && hostPlanType == 'FlexConsumption') {
+resource blobContainerNewAccount 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = if (deployStorageAccount && !empty(containerName)) {
   name: containerName
   parent: storageAccount::blobServices
   properties: {
@@ -116,12 +116,12 @@ resource existingStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' e
   name: storageAccountNameVar
 }
 
-resource fileServicesExistingAccount 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption') {
+resource fileServicesExistingAccount 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(fileShareName)) {
   name: 'default'
   parent: existingStorageAccount
 }
 
-resource fileShareExistingAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption') {
+resource fileShareExistingAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(fileShareName)) {
   name: fileShareName
   parent: fileServicesExistingAccount
   properties: {
@@ -130,12 +130,12 @@ resource fileShareExistingAccount 'Microsoft.Storage/storageAccounts/fileService
   }
 }
 
-resource blobServicesExistingAccount 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && (hostPlanType == 'AppServicePlan' || hostPlanType == 'FlexConsumption')) {
+resource blobServicesExistingAccount 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(containerName)) {
   name: 'default'
   parent: existingStorageAccount
 }
 
-resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType == 'FlexConsumption') {
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(containerName)) {
   name: containerName
   parent: blobServicesExistingAccount
   properties: {

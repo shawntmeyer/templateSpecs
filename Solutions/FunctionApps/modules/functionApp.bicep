@@ -8,6 +8,7 @@ param functionAppOutboundSubnetId string
 param hostingPlanId string?
 param hostingPlanType string
 param location string
+param fileShareName string
 param functionAppKind string
 param functionAppPrivateDnsZoneId string
 param logAnalyticsWorkspaceId string
@@ -45,38 +46,49 @@ var linuxRuntimeStack = contains(functionsWorkerRuntime, 'dotnet')
           ? 'PowerShell'
           : runtimeStack == 'python' ? 'Python' : runtimeStack == 'java' ? 'Java' : null
 
-var aspAppSettings = [
-  {
-    name: 'AzureWebJobsStorage__blobServiceUri'
-    value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
-  }
-  {
-    name: 'AzureWebJobsStorage__credential'
-    value: 'managedidentity'
-  }
-  {
-    name: 'AzureWebJobsStorage__queueServiceUri'
-    value: 'https://${storageAccount.name}.queue.${environment().suffixes.storage}'
-  }
-  {
-    name: 'AzureWebJobsStorage__tableServiceUri'
-    value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
-  }
-  {
-    name: 'FUNCTIONS_EXTENSION_VERSION'
-    value: '~4'
-  }
-  {
-    name: 'FUNCTIONS_WORKER_RUNTIME'
-    value: functionsWorkerRuntime
-  }
-  {
-    name: 'WEBSITE_LOAD_USER_PROFILE'
-    value: '1'
-  }
-]
+var websiteRunFromPackageAppSettings = empty(blobContainerName)
+  ? []
+  : [
+      {
+        name: 'WEBSITE_RUN_FROM_PACKAGE'
+        value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}/${blobContainerName}/'
+      }
+    ]
+var noFileShareAppSettings = union(
+  [
+    {
+      name: 'AzureWebJobsStorage__blobServiceUri'
+      value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
+    }
+    {
+      name: 'AzureWebJobsStorage__credential'
+      value: 'managedidentity'
+    }
+    {
+      name: 'AzureWebJobsStorage__queueServiceUri'
+      value: 'https://${storageAccount.name}.queue.${environment().suffixes.storage}'
+    }
+    {
+      name: 'AzureWebJobsStorage__tableServiceUri'
+      value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
+    }
+    {
+      name: 'FUNCTIONS_EXTENSION_VERSION'
+      value: '~4'
+    }
+    {
+      name: 'FUNCTIONS_WORKER_RUNTIME'
+      value: functionsWorkerRuntime
+    }
+    {
+      name: 'WEBSITE_LOAD_USER_PROFILE'
+      value: '1'
+    }
+  ],
+  websiteRunFromPackageAppSettings
+)
 
-var consumptionAndPremiumAppSettings = [
+var fileShareAppSettings = [
   {
     name: 'AzureWebJobsStorage'
     value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
@@ -167,11 +179,11 @@ var flexAppSettings = environment().name == 'AzureCloud'
       }
     ]
 
-var appSettings = hostingPlanType == 'AppServicePlan'
-  ? union(aspAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings)
-  : (hostingPlanType == 'FlexConsumption'
-      ? union(flexAppSettings, appInsightsAppSettings)
-      : union(consumptionAndPremiumAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings))
+var appSettings = hostingPlanType == 'FlexConsumption'
+  ? union(flexAppSettings, appInsightsAppSettings)
+  : (empty(fileShareName)
+      ? union(noFileShareAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings)
+      : union(fileShareAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings))
 
 // resources
 
@@ -186,7 +198,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (en
   tags: tags[?'Microsoft.Insights/components'] ?? {}
 }
 
-module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if(enableApplicationInsights && !empty(privateLinkScopeResourceId)) {
+module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if (enableApplicationInsights && !empty(privateLinkScopeResourceId)) {
   name: 'PrivateLlinkScope-${timestamp}'
   scope: subscription()
   params: {
@@ -200,7 +212,7 @@ module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if(enableApplicatio
 
 resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   name: functionAppName
-  identity: hostingPlanType == 'AppServicePlan' || hostingPlanType == 'FlexConsumption'
+  identity: empty(fileShareName) || hostingPlanType == 'FlexConsumption'
     ? {
         type: 'SystemAssigned'
       }
@@ -248,9 +260,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
     vnetImagePullEnabled: hostingPlanType == 'FlexConsumption' || hostingPlanType == 'Consumption'
       ? null
       : !empty(functionAppOutboundSubnetId) ? true : false
-    vnetContentShareEnabled: hostingPlanType != 'FunctionsPremium'
-      ? null
-      : !empty(functionAppOutboundSubnetId) ? true : false
+    vnetContentShareEnabled: empty(fileShareName) ? null : !empty(functionAppOutboundSubnetId) ? true : false
     vnetRouteAllEnabled: hostingPlanType == 'FlexConsumption' || hostingPlanType == 'Consumption'
       ? null
       : !empty(functionAppOutboundSubnetId) ? true : false
@@ -317,7 +327,7 @@ resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@
 }
 
 // Allow access from function app to storage account using a managed identity
-module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' = if (hostingPlanType == 'AppServicePlan' || hostingPlanType == 'FlexConsumption') {
+module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' = if (empty(fileShareName)) {
   name: 'roleAssignment-storageAccount'
   scope: resourceGroup(split(storageAccountResourceId, '/')[2], split(storageAccountResourceId, '/')[4])
   params: {

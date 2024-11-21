@@ -322,7 +322,7 @@
 								{
 									"name": "zoneRedundancyTextBlock",
 									"type": "Microsoft.Common.TextBlock",
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), or(contains(steps('basics').hosting.hostingPlanPricing, 'Premium'), equals(steps('basics').hosting.hostingPlanPricing, 'FlexConsumption')), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), or(equals(steps('basics').hosting.hostingPlanPricing, 'FunctionsPremium'), equals(steps('basics').hosting.hostingPlanPricing, 'FlexConsumption')), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]",
 									"options": {
 										"text": "An App Service Plan can be deployed as a zone redundant service in the regions that support it. This is a deployment time only decision. You can't make an App Service Plan zone redundant after it has been deployed.",
 										"link": {
@@ -349,7 +349,7 @@
 											}
 										]
 									},
-									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), or(equals(steps('basics').hosting.hostingPlanPricing, 'FlexConsumption'), contains(steps('basics').hosting.hostingPlanPricing, 'Premium')), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
+									"visible": "[and(equals(steps('basics').hosting.newServerFarm, true), or(equals(steps('basics').hosting.hostingPlanPricing, 'FlexConsumption'), equals(steps('basics').hosting.hostingPlanPricing, 'FunctionsPremium')), contains(first(map(filter(steps('basics').hosting.geoRegionsApi.value, (item) => equals(toLower(replace(item.name, ' ', '')), steps('basics').scope.location.name)), (item) => item.properties.orgDomain)), 'ZONEREDUNDANCY'))]"
 								}
 							],
 							"visible": true
@@ -412,23 +412,10 @@
 						},
 						{
 							"name": "newStorageAccount",
-							"type": "Microsoft.Common.OptionsGroup",
+							"type": "Microsoft.Common.CheckBox",
 							"label": "Create a new storage account",
-							"defaultValue": "Yes",
-							"toolTip": "Select 'Yes' to create a new storage account or 'No' to select an existing storage from the region where the function app will be deployed.",
-							"constraints": {
-								"required": false,
-								"allowedValues": [
-									{
-										"label": "Yes",
-										"value": true
-									},
-									{
-										"label": "No, use an existing storage account",
-										"value": false
-									}
-								]
-							},
+							"defaultValue": true,
+							"toolTip": "Select this option to create a new storage account or deselect to this option to select an existing storage from the region where the function app will be deployed.",
 							"visible": "[not(contains(steps('basics').hosting.hostingPlanType, 'Consumption'))]"
 						},
 						{
@@ -455,9 +442,9 @@
 						{
 							"name": "existingStorageTextBlock",
 							"type": "Microsoft.Common.TextBlock",
-							"visible": "[or(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), equals(steps('storage').newStorageAccount, false))]",
+							"visible": "[and(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), equals(steps('storage').newStorageAccount, false))]",
 							"options": {
-								"text": "The list of storage accounts below are filtered to only include those in the region selected on the 'Basics' pane and general purpose V2 types.",
+								"text": "The list of storage accounts below are filtered to only include those in the region selected on the <b>Basics</b> pane and general purpose V2 types.",
 								"link": {
 									"label": "Learn more",
 									"uri": "https://go.microsoft.com/fwlink/?linkid=2249771"
@@ -467,7 +454,7 @@
 						{
 							"name": "exStorageNewHostPlanZRSInfoBox",
 							"type": "Microsoft.Common.InfoBox",
-							"visible": "[and(steps('basics').hosting.zoneRedundant, equals(steps('storage').newStorageAccount, false))]",
+							"visible": "[and(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('basics').hosting.zoneRedundant, equals(steps('storage').newStorageAccount, false))]",
 							"options": {
 								"style": "Info",
 								"text": "In addition, since you chose to create a zone redundant Host Plan, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
@@ -477,7 +464,7 @@
 						{
 							"name": "exStorageExHostPlanZRSInfoBox",
 							"type": "Microsoft.Common.InfoBox",
-							"visible": "[and(equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(steps('storage').newStorageAccount, false))]",
+							"visible": "[and(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), equals(steps('storage').existingServerFarmApi.properties.numberOfWorkers, 3), equals(steps('storage').newStorageAccount, false))]",
 							"options": {
 								"style": "Info",
 								"text": "In addition, since you chose an existing hosting plan that is zone redundant, the list of storage accounts is limited to the 'Standard_ZRS' sku.",
@@ -496,6 +483,33 @@
 								"required": true
 							},
 							"visible": "[and(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), equals(steps('storage').newStorageAccount, false))]"
+						},						
+						{
+							"name": "addAzureFilesConnection",
+							"type": "Microsoft.Common.CheckBox",
+							"label": "Add an Azure Files connection",
+							"defaultValue": true,
+							"visible": "[or(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'))]"
+						},
+						{
+							"name": "AzureFilesConnectionInfoBox",
+							"type": "Microsoft.Common.InfoBox",
+							"visible": "[and(or(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium')), steps('storage').addAzureFilesConnection)]",
+							"options": {
+								"style": "Info",
+								"text": "Azure Files is used to enable certain features, but you can create an app without one if you don't want to add another connection to your storage account. The Azure Files connection will be configured in the Function App Application Settings with the storage key in clear text. Consider using a Key Vault reference for the storage key to secure it.",
+								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-identity-based-connections-tutorial"
+							}
+						},
+						{
+							"name": "NoAzureFilesConnectionWarningBox",
+							"type": "Microsoft.Common.InfoBox",
+							"visible": "[and(or(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium')), equals(steps('storage').addAzureFilesConnection, false))]",
+							"options": {
+								"style": "Warning",
+								"text": "[concat('Without Azure Files, you will need to manually set up continuous integration and deploy your package to the Azure Blob storage container \"app-package-', steps('basics').functionAppName, '\" created on this storage account for the package.')]",
+								"uri": "https://go.microsoft.com/fwlink/?linkid=2277626"
+							}
 						}
 					]
 				},
@@ -1309,6 +1323,7 @@
 				"deployStorageAccount": "[if(or(contains(steps('basics').hosting.hostingPlanType, 'Consumption'), steps('storage').newStorageAccount), true, false)]",
 				"storageAccountId": "[if(or(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), equals(steps('storage').newStorageAccount, false)), steps('storage').storageAccountId, '')]",
 				"storageAccountName": "[if(or(contains(steps('basics').hosting.hostingPlanType, 'Consumption'), steps('storage').newStorageAccount), steps('storage').name, '')]",
+				"addAzureFilesConnection": "[if(or(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium')), steps('storage').addAzureFilesConnection, false)]",
 				"enablePublicAccess": "[steps('networking').publicAccess]",
 				"deployNetworking": "[if(and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').networkInjection), steps('networking').virtualNetwork.newVNet, false)]",
 				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",				

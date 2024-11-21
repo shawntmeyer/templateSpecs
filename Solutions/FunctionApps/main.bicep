@@ -103,6 +103,7 @@ param hostingPlanPricing string = 'Dynamic_Y1'
 @description('Optional. Determines if the hosting plan is zone redundant. Not used when "hostingPlanId" is provided or hostingPlanType is set to "Consumption".')
 param hostingPlanZoneRedundant bool = false
 
+// Storage Account
 @description('Optional. Determines whether an existing storage account is used or a new one is deployed. If set to true, the "storageAccountName" parameter must be provided. If set to false, the "storageAccountId" parameter must be provided.')
 param deployStorageAccount bool = true
 
@@ -111,6 +112,9 @@ param storageAccountId string = ''
 
 @description('Conditional. The name of the storage account used by the function App. Required if "deployStorageAccount" is set to true.')
 param storageAccountName string = ''
+
+@description('Optional. For Function Apps using the Consumption or FunctionsPremium hosting plans, determines whether the function App should be connected to the storage account through an Azure Files share.')
+param addAzureFilesConnection bool = false
 
 // Monitoring
 
@@ -262,7 +266,9 @@ var webSitePrivateDnsZoneName = enableInboundPrivateEndpoint ? [
 ] : []
 
 var existingHostingPlanType = !empty(existingHostingPlan) ? ( contains(existingHostingPlan.sku.tier, 'Flex') ? 'FlexConsumption' : ( contains(existingHostingPlan.sku.tier, 'Elastic') ? 'FunctionsPremium' : ( existingHostingPlan.sku.tier == 'Dynamic' ? 'Consumption' : 'AppServicePlan' ) ) ) : ''
-var blobContainerName = 'app-package-${toLower(functionAppName)}'
+var blobContainerName =  ( deployHostingPlan && ( hostingPlanType == 'FlexConsumption' || ( hostingPlanType != 'AppServicePlan' && !addAzureFilesConnection ) ) ) || ( !deployHostingPlan && ( existingHostingPlanType == 'FlexConsumption' || ( existingHostingPlan != 'AppServicePlan' && !addAzureFilesConnection ) ) ) ? 'app-package-${toLower(functionAppName)}' : ''
+var fileShareName = (deployHostingPlan && (hostingPlanType == 'Consumption' || hostingPlanType == 'FunctionsPremium')) || (!deployHostingPlan && (existingHostingPlanType == 'Consumption' || existingHostingPlanType == 'FunctionsPremium')) ? ( addAzureFilesConnection ? toLower(functionAppName) : '' ) : ''
+
 var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 
@@ -375,7 +381,7 @@ module storageResources 'modules/storage.bicep' = {
     containerName: blobContainerName
     deployStorageAccount: deployStorageAccount
     enableStoragePrivateEndpoints: enableStoragePrivateEndpoints
-    fileShareName: (deployHostingPlan && (hostingPlanType == 'Consumption' || hostingPlanType == 'FunctionsPremium')) || (!deployHostingPlan && (existingHostingPlanType != 'Consumption' || existingHostingPlanType == 'FunctionsPremium')) ? toLower(functionAppName) : ''
+    fileShareName: fileShareName
     hostPlanType: deployHostingPlan ? hostingPlanType : existingHostingPlanType
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     nameConvPrivEndpoints: nameConvPrivEndpoints
@@ -400,6 +406,7 @@ module functionAppResources 'modules/functionApp.bicep' = {
     enableApplicationInsights: enableApplicationInsights
     enablePublicAccess: enablePublicAccess
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint
+    fileShareName: fileShareName
     functionAppKind: functionAppKind
     functionAppName: functionAppName
     functionAppOutboundSubnetId: enableVnetIntegration ? ( deployNetworking ? networking.outputs.subnetIds[0] : functionAppOutboundSubnetId ) : ''
