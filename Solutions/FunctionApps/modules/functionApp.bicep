@@ -327,7 +327,7 @@ resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@
 }
 
 // Allow access from function app to storage account using a managed identity
-module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' = if (empty(fileShareName)) {
+module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' = if (empty(fileShareName) || hostingPlanType == 'FlexConsumption') {
   name: 'roleAssignment-storageAccount'
   scope: resourceGroup(split(storageAccountResourceId, '/')[2], split(storageAccountResourceId, '/')[4])
   params: {
