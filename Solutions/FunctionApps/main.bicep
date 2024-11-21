@@ -383,10 +383,10 @@ module storageResources 'modules/storage.bicep' = {
     storageAccountName: storageAccountName
     storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.subnetIds[1] : storagePrivateEndpointSubnetId  ) : ''
     storageAccountSku: storageAccountSku 
-    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.blob.'))) : storageBlobDnsZoneId ) : ''
-    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.file.'))) : storageFileDnsZoneId ) : ''
-    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.queue.'))) : storageQueueDnsZoneId ) : ''
-    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.table.'))) : storageTableDnsZoneId ) : ''
+    storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.blob.'))) : storageBlobDnsZoneId ) : ''
+    storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.file.'))) : storageFileDnsZoneId ) : ''
+    storageQueueDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.queue.'))) : storageQueueDnsZoneId ) : ''
+    storageTableDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.table.'))) : storageTableDnsZoneId ) : ''
     tags: tags
   }
 }
@@ -404,7 +404,7 @@ module functionAppResources 'modules/functionApp.bicep' = {
     functionAppName: functionAppName
     functionAppOutboundSubnetId: enableVnetIntegration ? ( deployNetworking ? networking.outputs.subnetIds[0] : functionAppOutboundSubnetId ) : ''
     functionAppInboundSubnetId: enableInboundPrivateEndpoint ? ( deployNetworking ? networking.outputs.subnetIds[2] : functionAppInboundSubnetId ) : ''    
-    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking && deployFunctionAppPrivateDnsZone ? string(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, webSitePrivateDnsZoneName))) : functionAppPrivateDnsZoneId ) : ''
+    functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking && deployFunctionAppPrivateDnsZone ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, webSitePrivateDnsZoneName))) : functionAppPrivateDnsZoneId ) : ''
     hostingPlanType: deployHostingPlan ? hostingPlanType : existingHostingPlanType
     hostingPlanId: deployHostingPlan ? hostingPlan.outputs.hostingPlanId : hostingPlanId
     nameConvPrivEndpoints: nameConvPrivEndpoints
