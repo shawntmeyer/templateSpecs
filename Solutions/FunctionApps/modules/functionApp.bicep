@@ -7,6 +7,11 @@ param functionAppName string
 param functionAppOutboundSubnetId string
 param hostingPlanId string?
 param hostingPlanType string
+param ipSecurityRestrictions array
+param ipSecurityRestrictionsDefaultAction string
+param scmIpSecurityRestrictions array
+param scmIpSecurityRestrictionsDefaultAction string
+param scmIpSecurityRestrictionsUseMain bool
 param location string
 param fileShareName string
 param functionAppKind string
@@ -47,35 +52,35 @@ var linuxRuntimeStack = contains(functionsWorkerRuntime, 'dotnet')
           : runtimeStack == 'python' ? 'Python' : runtimeStack == 'java' ? 'Java' : null
 
 var noFileShareAppSettings = [
-    {
-      name: 'AzureWebJobsStorage__blobServiceUri'
-      value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
-    }
-    {
-      name: 'AzureWebJobsStorage__credential'
-      value: 'managedidentity'
-    }
-    {
-      name: 'AzureWebJobsStorage__queueServiceUri'
-      value: 'https://${storageAccount.name}.queue.${environment().suffixes.storage}'
-    }
-    {
-      name: 'AzureWebJobsStorage__tableServiceUri'
-      value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
-    }
-    {
-      name: 'FUNCTIONS_EXTENSION_VERSION'
-      value: '~4'
-    }
-    {
-      name: 'FUNCTIONS_WORKER_RUNTIME'
-      value: functionsWorkerRuntime
-    }
-    {
-      name: 'WEBSITE_LOAD_USER_PROFILE'
-      value: '1'
-    }
-  ]
+  {
+    name: 'AzureWebJobsStorage__blobServiceUri'
+    value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
+  }
+  {
+    name: 'AzureWebJobsStorage__credential'
+    value: 'managedidentity'
+  }
+  {
+    name: 'AzureWebJobsStorage__queueServiceUri'
+    value: 'https://${storageAccount.name}.queue.${environment().suffixes.storage}'
+  }
+  {
+    name: 'AzureWebJobsStorage__tableServiceUri'
+    value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
+  }
+  {
+    name: 'FUNCTIONS_EXTENSION_VERSION'
+    value: '~4'
+  }
+  {
+    name: 'FUNCTIONS_WORKER_RUNTIME'
+    value: functionsWorkerRuntime
+  }
+  {
+    name: 'WEBSITE_LOAD_USER_PROFILE'
+    value: '1'
+  }
+]
 
 var fileShareAppSettings = [
   {
@@ -174,6 +179,18 @@ var appSettings = hostingPlanType == 'FlexConsumption'
       ? union(noFileShareAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings)
       : union(fileShareAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings))
 
+var siteConfigNetworkRestrictions = {
+  ipSecurityRestrictions: empty(ipSecurityRestrictions) ? null : ipSecurityRestrictions
+  ipSecurityRestrictionsDefaultAction: empty(ipSecurityRestrictions) ? null : ipSecurityRestrictionsDefaultAction
+  scmIpSecurityRestrictions: empty(scmIpSecurityRestrictions) ? null : scmIpSecurityRestrictions
+  scmIpSecurityRestrictionsDefaultAction: empty(scmIpSecurityRestrictions)
+    ? null
+    : scmIpSecurityRestrictionsDefaultAction
+  scmIpSecurityRestrictionsUseMain: empty(ipSecurityRestrictions) && empty(scmIpSecurityRestrictions)
+    ? null
+    : scmIpSecurityRestrictionsUseMain
+}
+
 // resources
 
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (enableApplicationInsights) {
@@ -235,16 +252,22 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
     serverFarmId: !empty(hostingPlanId) ? hostingPlanId : null
     siteConfig: hostingPlanType == 'FlexConsumption'
-      ? {
-          appSettings: appSettings
-        }
-      : {
-          appSettings: appSettings
-          linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
-          netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet')
-            ? 'v${decimalRuntimeVersion}'
-            : null
-        }
+      ? union(
+          {
+            appSettings: appSettings
+          },
+          siteConfigNetworkRestrictions
+        )
+      : union(
+          {
+            appSettings: appSettings
+            linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
+            netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet')
+              ? 'v${decimalRuntimeVersion}'
+              : null
+          },
+          siteConfigNetworkRestrictions
+        )
     virtualNetworkSubnetId: !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : null
     vnetImagePullEnabled: hostingPlanType == 'FlexConsumption' || hostingPlanType == 'Consumption'
       ? null

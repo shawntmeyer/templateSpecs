@@ -242,8 +242,7 @@
 											},
 											{
 												"label": "No",
-												"value":
-												false
+												"value": false
 											}
 										],
 										"required": true
@@ -257,7 +256,7 @@
 										"method": "GET",
 										"path": "[concat(steps('basics').scope.subscription.id, '/providers/Microsoft.Web/serverfarms?api-version=2022-03-01')]"
 									}
-								},								
+								},
 								{
 									"name": "existingServerFarmInfoBox",
 									"type": "Microsoft.Common.InfoBox",
@@ -276,10 +275,9 @@
 									"constraints": {
 										"required": true,
 										"allowedValues": "[map(filter(steps('basics').hosting.serverFarmsApi.value, (item) => and(equals(toLower(replace(item.location, ' ', '')), steps('basics').scope.location.name), if(equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium'), and(contains(item.kind, 'elastic'), if(contains(steps('basics').functionAppKind, 'linux'), contains(item.properties.webSpace, 'Linux'), not(contains(item.properties.webSpace, 'Linux')))), if(equals(steps('basics').hosting.hostingPlanType, 'FlexConsumption'), equals(item.kind, 'functionapp'), if(contains(steps('basics').functionAppKind, 'linux'), equals(item.kind, 'linux'), equals(item.kind, 'app')))))), (item) => parse(concat('{\"label\":\"', item.name, '\",\"description\":\"Resource Group: ', first(skip(split(item.id, '/'), 4)) , ', Sku: ', item.sku.name, ', ZoneRedundant: ', if(greater(item.properties.numberOfWorkers, 1), 'Yes', 'No'), '\",\"value\":\"', item.id, '\"}')))]"
-
 									},
 									"visible": "[and(equals(steps('basics').hosting.newServerFarm, false), not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')))]"
-								},								
+								},
 								{
 									"name": "hostingPlanName",
 									"type": "Microsoft.Common.TextBox",
@@ -483,7 +481,7 @@
 								"required": true
 							},
 							"visible": "[and(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), equals(steps('storage').newStorageAccount, false))]"
-						},						
+						},
 						{
 							"name": "addAzureFilesConnection",
 							"type": "Microsoft.Common.CheckBox",
@@ -554,7 +552,19 @@
 							}
 						},
 						{
-							"name": "networkingTextBlock1",
+							"name": "serviceTagsApi",
+							"condition": "[not(empty(steps('basics').scope.subscription.id))]",
+							"type": "Microsoft.Solutions.ArmApiControl",
+							"request": {
+								"method": "GET",
+								"path": "[concat(steps('basics').scope.subscription.id, '/providers/Microsoft.Network/locations/', steps('basics').scope.location.name, '/serviceTags?api-version=2024-03-01')]",
+								"transforms": {
+									"names": "values|[*].{label:name, value:id}"
+								}
+							}
+						},
+						{
+							"name": "networkingTextBlock",
 							"type": "Microsoft.Common.TextBlock",
 							"visible": true,
 							"options": {
@@ -566,60 +576,456 @@
 							}
 						},
 						{
-							"name": "publicAccess",
-							"type": "Microsoft.Common.OptionsGroup",
-							"label": "Enable public access",
-							"defaultValue": "On",
-							"toolTip": "Public access is applied to both main site and advanced tool site. Deny public network access will block all incoming traffic except that comes from private endpoints.",
-							"constraints": {
-								"required": false,
-								"allowedValues": [
-									{
-										"label": "On",
-										"value": true
-									},
-									{
-										"label": "Off",
-										"value": false
+							"name": "inbound",
+							"type": "Microsoft.Common.Section",
+							"label": "Inbound Access",
+							"elements": [
+								{
+									"name": "publicAccess",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable public access",
+									"defaultValue": "Off",
+									"toolTip": "Public access is applied to both main site and advanced tool site. Deny public network access will block all incoming traffic except that which comes from private endpoints.",
+									"constraints": {
+										"required": false,
+										"allowedValues": [
+											{
+												"label": "On",
+												"value": true
+											},
+											{
+												"label": "Off",
+												"value": false
+											}
+										]
 									}
-								]
-							}
+								},
+								{
+									"name": "defineRestrictions",
+									"type": "Microsoft.Common.CheckBox",
+									"label": "Configure Inbound Rules",
+									"defaultValue": false,
+									"visible": "[steps('networking').inbound.publicAccess]"
+								}
+							]
 						},
 						{
-							"name": "warningNetworkIntegrationNotAvailable",
-							"type": "Microsoft.Common.InfoBox",
-							"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
-							"options": {
-								"style": "Warning",
-								"text": "Network integration is only available in Flex Consumption, Functions Premium and Basic, Standard, Premium, Premium V2, Premium V3 Dedicated App Service plans.",
-								"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-networking-options?tabs=azure-portal#matrix-of-networking-features"
-							}
+							"name": "inboundRestrictions",
+							"type": "Microsoft.Common.Section",
+							"label": "",
+							"elements": [
+								{
+									"name": "restrictionsHeader",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "<u>Inbound Restrictions</u>"
+									}
+								},
+								{
+									"name": "networkingRestrictionsTextBlock",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "You can define lists of allow/deny rules to control traffic to your site. Rules are evaluated in priority order. If no created rule is matched to the traffic, the \"Unmatched rule action\" will control how the traffic is handled.",
+										"link": {
+											"label": "Learn more",
+											"uri": "https://go.microsoft.com/fwlink/?linkid=854597"
+										}
+									}
+								},
+								{
+									"name": "mainSiteHeader",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "<i>Main Site</i>"
+									}
+								},
+								{
+									"name": "mainSiteDefaultAction",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Unmatched rule action",
+									"defaultValue": "Deny",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Allow",
+												"value": "Allow"
+											},
+											{
+												"label": "Deny",
+												"value": "Deny"
+											}
+										],
+										"required": true
+									}
+								},
+								{
+									"name": "ipSecurityRestrictions",
+									"type": "Microsoft.Common.EditableGrid",
+									"ariaLabel": "IP Security Restrictions",
+									"label": "IP Security Restrictions",
+									"constraints": {
+										"width": "Full",
+										"rows": {
+											"count": {
+												"min": 1,
+												"max": 10
+											}
+										},
+										"columns": [
+											{
+												"id": "name",
+												"header": "Name",
+												"width": "1fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"placeholder": "Rule Name",
+													"constraints": {
+														"required": true,
+														"validations": [
+															{
+																"regex": "^[a-z0-9A-Z]{1,30}$",
+																"message": "Only alphanumeric characters are allowed, and the value must be 1-30 characters long."
+															}
+														]
+													}
+												}
+											},
+											{
+												"id": "priority",
+												"header": "Priority",
+												"width": "1fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"placeholder": "integer",
+													"constraints": {
+														"required": true,
+														"validations": [
+															{
+																"regex": "^(?:214748364[0-6]|21474836[0-3]\\d|2147483[0-5]\\d{2}|214748[0-2]\\d{3}|21474[0-7]\\d{4}|2147[0-3]\\d{5}|214[0-6]\\d{6}|21[0-3]\\d{7}|2[01]\\d{8}|1\\d{9}|\\d{1,9})$",
+																"message": "Only integers from 1 through 2147483646 are allowed."
+															}
+														]
+													}
+												}
+											},
+											{
+												"id": "action",
+												"header": "Action",
+												"width": "1fr",
+												"element": {
+													"name": "action",
+													"type": "Microsoft.Common.DropDown",
+													"constraints": {
+														"allowedValues": [
+															{
+																"label": "Allow",
+																"value": "Allow"
+															},
+															{
+																"label": "Deny",
+																"value": "Deny"
+															}
+														],
+														"required": true
+													}
+												}
+											},
+											{
+												"id": "type",
+												"header": "Type",
+												"width": "1fr",
+												"element": {
+													"name": "type",
+													"defaultValue": "Service Tag",
+													"type": "Microsoft.Common.DropDown",
+													"constraints": {
+														"allowedValues": [
+															{
+																"label": "IP Address",
+																"value": "Default"
+															},
+															{
+																"label": "Service Tag",
+																"value": "ServiceTag"
+															}
+														],
+														"required": true
+													}
+												}
+											},
+											{
+												"id": "ipAddress",
+												"header": "IP Address Prefix",
+												"width": "1fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"constraints": {
+														"required": "[equals(last(take(steps('networking').inboundRestrictions.ipSecurityRestrictions, $rowIndex)).type, 'Default')]",
+														"validations": [
+															{
+																"regex": "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\/([0-9]|[1-2][0-9]|3[0-2]))$",
+																"message": "Only valid IP Prefix allowed"
+															}
+														]
+													}
+												}
+											},
+											{
+												"id": "serviceTag",
+												"header": "Service Tag",
+												"width": "1fr",
+												"element": {
+													"name": "serviceTag",
+													"type": "Microsoft.Common.DropDown",
+													"constraints": {
+														"allowedValues": "[steps('networking').serviceTagsApi.transformed.names]"
+													}
+												}
+											},
+											{
+												"id": "description",
+												"header": "Description",
+												"width": "2fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"placeholder": "Description",
+													"constraints": {
+														"required": false,
+														"validations": [
+															{
+																"regex": "^.{0,64}$",
+																"message": "The length cannot exceed 64 characters."
+															}
+														]
+													}
+												}
+											}
+										]
+									}
+								},
+								{
+									"name": "advancedSiteHeader",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "<i>Advanced Site</i>"
+									}
+								},
+								{
+									"name": "advancedSiteDefaultAction",
+									"type": "Microsoft.Common.DropDown",
+									"label": "Unmatched rule action",
+									"defaultValue": "Deny",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Allow",
+												"value": "Allow"
+											},
+											{
+												"label": "Deny",
+												"value": "Deny"
+											}
+										],
+										"required": true
+									}
+								},
+								{
+									"name": "scmUseMainSiteRules",
+									"type": "Microsoft.Common.CheckBox",
+									"label": "Use main site Rules",
+									"defaultValue": true
+								},
+								{
+									"name": "scmIpSecurityRestrictions",
+									"type": "Microsoft.Common.EditableGrid",
+									"ariaLabel": "Advanced Site IP Security Restrictions",
+									"label": "Advanced Site IP Security Restrictions",
+									"visible": "[equals(steps('networking').scmUseMainSiteRules, false)]",
+									"constraints": {
+										"width": "Full",
+										"rows": {
+											"count": {
+												"min": 0,
+												"max": 10
+											}
+										},
+										"columns": [
+											{
+												"id": "name",
+												"header": "Name",
+												"width": "1fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"placeholder": "Rule Name",
+													"constraints": {
+														"required": true,
+														"validations": [
+															{
+																"regex": "^[a-z0-9A-Z]{1,30}$",
+																"message": "Only alphanumeric characters are allowed, and the value must be 1-30 characters long."
+															}
+														]
+													}
+												}
+											},
+											{
+												"id": "priority",
+												"header": "Priority",
+												"width": "1fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"placeholder": "integer",
+													"constraints": {
+														"required": true,
+														"validations": [
+															{
+																"regex": "^(?:214748364[0-6]|21474836[0-3]\\d|2147483[0-5]\\d{2}|214748[0-2]\\d{3}|21474[0-7]\\d{4}|2147[0-3]\\d{5}|214[0-6]\\d{6}|21[0-3]\\d{7}|2[01]\\d{8}|1\\d{9}|\\d{1,9})$",
+																"message": "Only integers from 1 through 2147483646 are allowed."
+															}
+														]
+													}
+												}
+											},
+											{
+												"id": "action",
+												"header": "Action",
+												"width": "1fr",
+												"element": {
+													"name": "action",
+													"type": "Microsoft.Common.DropDown",
+													"constraints": {
+														"allowedValues": [
+															{
+																"label": "Allow",
+																"value": "Allow"
+															},
+															{
+																"label": "Deny",
+																"value": "Deny"
+															}
+														],
+														"required": true
+													}
+												}
+											},
+											{
+												"id": "type",
+												"header": "Type",
+												"width": "1fr",
+												"element": {
+													"name": "type",
+													"defaultValue": "Service Tag",
+													"type": "Microsoft.Common.DropDown",
+													"constraints": {
+														"allowedValues": [
+															{
+																"label": "IP Address",
+																"value": "Default"
+															},
+															{
+																"label": "Service Tag",
+																"value": "ServiceTag"
+															}
+														]
+													}
+												}
+											},
+											{
+												"id": "ipAddress",
+												"header": "IP Address Prefix",
+												"width": "1fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"constraints": {
+														"required": "[equals(last(take(steps('networking').inboundRestrictions.scmIpSecurityRestrictions, $rowIndex)).type, 'Default')]",
+														"validations": [
+															{
+																"regex": "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\/([0-9]|[1-2][0-9]|3[0-2]))$",
+																"message": "Only valid IP Prefix allowed"
+															}
+														]
+													}
+												}
+											},
+											{
+												"id": "serviceTag",
+												"header": "Service Tag",
+												"width": "1fr",
+												"element": {
+													"name": "serviceTag",
+													"type": "Microsoft.Common.DropDown",
+													"constraints": {
+														"allowedValues": "[steps('networking').serviceTagsApi.transformed.names]"														
+													}
+												}
+											},
+											{
+												"id": "description",
+												"header": "Description",
+												"width": "2fr",
+												"element": {
+													"type": "Microsoft.Common.TextBox",
+													"placeholder": "Description",
+													"constraints": {
+														"required": false,
+														"validations": [
+															{
+																"regex": "^.{0,64}$",
+																"message": "The length cannot exceed 64 characters."
+															}
+														]
+													}
+												}
+											}
+										]
+									}
+								}
+							],
+							"visible": "[and(steps('networking').inbound.publicAccess, steps('networking').inbound.defineRestrictions)]"
 						},
 						{
-							"name": "networkInjection",
-							"type": "Microsoft.Common.OptionsGroup",
-							"label": "Enable network integration",
-							"defaultValue": "Yes",
-							"toolTip": "Allows your function app to attach to and/or access resources inside a virtual network.",
-							"constraints": {
-								"allowedValues": [
-									{
-										"label": "Yes",
-										"value": true
-									},
-									{
-										"label": "No",
-										"value": false
+							"name": "vnetIntegration",
+							"type": "Microsoft.Common.Section",
+							"label": "Virtual Network Integration",
+							"elements": [
+								{
+									"name": "warningNetworkIntegrationNotAvailable",
+									"type": "Microsoft.Common.InfoBox",
+									"visible": "[equals(steps('basics').hosting.hostingPlanType, 'Consumption')]",
+									"options": {
+										"style": "Warning",
+										"text": "Network integration is only available in Flex Consumption, Functions Premium and Basic, Standard, Premium, Premium V2, Premium V3 Dedicated App Service plans.",
+										"uri": "https://learn.microsoft.com/en-us/azure/azure-functions/functions-networking-options?tabs=azure-portal#matrix-of-networking-features"
 									}
-								]
-							},
-							"visible": "[not(equals(steps('basics').hosting.hostingPlanType, 'Consumption'))]"
+								},
+								{
+									"name": "enable",
+									"type": "Microsoft.Common.OptionsGroup",
+									"label": "Enable network integration",
+									"defaultValue": "Yes",
+									"toolTip": "Allows your function app to attach to and/or access resources inside a virtual network.",
+									"constraints": {
+										"allowedValues": [
+											{
+												"label": "Yes",
+												"value": true
+											},
+											{
+												"label": "No",
+												"value": false
+											}
+										]
+									},
+									"visible": "[not(equals(steps('basics').hosting.hostingPlanType, 'Consumption'))]"
+								}
+							],
+							"visible": true
 						},
 						{
 							"name": "virtualNetwork",
 							"type": "Microsoft.Common.Section",
-							"label": "Virtual Network",
-							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').networkInjection)]",
+							"label": "",
+							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').vnetIntegration.enable)]",
 							"elements": [
 								{
 									"name": "newVNet",
@@ -731,17 +1137,24 @@
 									},
 									"visible": "[steps('networking').virtualNetwork.newVNet]"
 								}
-							]							
+							]
 						},
 						{
 							"name": "inboundAccess",
 							"type": "Microsoft.Common.Section",
-							"label": "Inbound access",
+							"label": "",
 							"elements": [
+								{
+									"name": "inboundHeader",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "<u>Inbound Private Endpoint</u>"
+									}
+								},
 								{
 									"name": "infoBox1",
 									"type": "Microsoft.Common.InfoBox",
-									"visible": "[steps('networking').publicAccess]",
+									"visible": "[steps('networking').inbound.publicAccess]",
 									"options": {
 										"style": "Warning",
 										"text": "Private endpoints are disabled if public internet access is enabled."
@@ -751,10 +1164,10 @@
 									"name": "enablePE",
 									"type": "Microsoft.Common.OptionsGroup",
 									"label": "Enable private endpoints",
-									"defaultValue": "[if(steps('networking').publicAccess, 'No', 'Yes')]",
+									"defaultValue": "[if(steps('networking').inbound.publicAccess, 'No', 'Yes')]",
 									"toolTip": "Choose 'Yes' to enable private endpoints for the inbound access to the Function App.",
 									"constraints": {
-										"allowedValues": "[if(steps('networking').publicAccess, parse('[{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]"
+										"allowedValues": "[if(steps('networking').inbound.publicAccess, parse('[{\"label\":\"No\",\"value\":false}]'), parse('[{\"label\":\"Yes\",\"value\":true},{\"label\":\"No\",\"value\":false}]'))]"
 									},
 									"visible": true
 								},
@@ -824,7 +1237,7 @@
 										]
 									},
 									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE)]"
-								},								
+								},
 								{
 									"name": "enablePrivateDNS",
 									"type": "Microsoft.Common.OptionsGroup",
@@ -872,13 +1285,20 @@
 									}
 								}
 							],
-							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').networkInjection)]"
+							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').vnetIntegration.enable)]"
 						},
 						{
 							"name": "outboundAccess",
 							"type": "Microsoft.Common.Section",
-							"label": "Outbound access",
+							"label": "",
 							"elements": [
+								{
+									"name": "outboundHeader",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "<u>Outbound Flow</u>"
+									}
+								},
 								{
 									"name": "enableVNetIntegration",
 									"type": "Microsoft.Common.OptionsGroup",
@@ -975,13 +1395,20 @@
 									"visible": "[and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration)]"
 								}
 							],
-							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').networkInjection)]"
+							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').vnetIntegration.enable)]"
 						},
 						{
 							"name": "storagePrivateEndpoints",
 							"type": "Microsoft.Common.Section",
-							"label": "Storage Private Endpoints",
+							"label": "",
 							"elements": [
+								{
+									"name": "storageHeader",
+									"type": "Microsoft.Common.TextBlock",
+									"options": {
+										"text": "<u>Storage Private Endpoints</u>"
+									}
+								},
 								{
 									"name": "textBlock1",
 									"type": "Microsoft.Common.TextBlock",
@@ -1055,7 +1482,7 @@
 										]
 									},
 									"visible": "[and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE)]"
-								},								
+								},
 								{
 									"name": "snetTextBlock",
 									"type": "Microsoft.Common.TextBlock",
@@ -1161,7 +1588,7 @@
 									}
 								}
 							],
-							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration)]"
+							"visible": "[and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').vnetIntegration.enable, steps('networking').outboundAccess.enableVNetIntegration)]"
 						}
 					]
 				},
@@ -1324,17 +1751,22 @@
 				"storageAccountId": "[if(or(not(contains(steps('basics').hosting.hostingPlanType, 'Consumption')), equals(steps('storage').newStorageAccount, false)), steps('storage').storageAccountId, '')]",
 				"storageAccountName": "[if(or(contains(steps('basics').hosting.hostingPlanType, 'Consumption'), steps('storage').newStorageAccount), steps('storage').name, '')]",
 				"addAzureFilesConnection": "[if(or(equals(steps('basics').hosting.hostingPlanType, 'Consumption'), equals(steps('basics').hosting.hostingPlanType, 'FunctionsPremium')), steps('storage').addAzureFilesConnection, false)]",
-				"enablePublicAccess": "[steps('networking').publicAccess]",
-				"deployNetworking": "[if(and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').networkInjection), steps('networking').virtualNetwork.newVNet, false)]",
-				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",				
-				"enableVNetIntegration": "[if(and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').networkInjection), steps('networking').outboundAccess.enableVNetIntegration, false)]",
+				"enablePublicAccess": "[steps('networking').inbound.publicAccess]",
+				"ipSecurityRestrictions": "[if(and(steps('networking').inbound.publicAccess, steps('networking').inbound.defineRestrictions), map(steps('networking').inboundRestrictions.ipSecurityRestrictions, (item) => parse(concat('{\"name\":\"', item.name, '\",\"priority\":\"', item.priority, '\",\"action\":\"', item.action, '\",\"ipAddress\":\"', if(equals(item.type, 'Default'), item.ipAddress, item.serviceTag), '\",\"description\":\"', item.description, '\",\"tag\":\"', item.type, '\"}'))), parse('[]'))]",
+				"ipSecurityRestrictionsDefaultAction": "[if(and(steps('networking').inbound.publicAccess, steps('networking').inbound.defineRestrictions), steps('networking').inboundRestrictions.mainSiteDefaultAction, 'Deny')]",
+				"scmIpSecurityRestrictionsDefaultAction": "[if(and(steps('networking').inbound.publicAccess, steps('networking').inbound.defineRestrictions), steps('networking').inboundRestrictions.advancedSiteDefaultAction, 'Deny')]",
+				"scmIpSecurityRestrictionsUseMain": "[if(and(steps('networking').inbound.publicAccess, steps('networking').inbound.defineRestrictions), steps('networking').inboundRestrictions.scmUseMainSiteRules, false)]",
+				"scmIpSecurityRestrictions": "[if(and(steps('networking').inbound.publicAccess, steps('networking').inbound.defineRestrictions, equals(steps('networking').inboundRestrictions.scmUseMainSiteRules, false)), map(steps('networking').inboundRestrictions.scmIpSecurityRestrictions, (item) => parse(concat('{\"name\":\"', item.name, '\",\"priority\":\"', item.priority, '\",\"action\":\"', item.action, '\",\"ipAddress\":\"', if(equals(item.type, 'Default'), item.ipAddress, item.serviceTag), '\",\"description\":\"', item.description, '\",\"tag\":\"', item.type, '\"}'))), parse('[]'))]",
+				"deployNetworking": "[if(and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').vnetIntegration.enable), steps('networking').virtualNetwork.newVNet, false)]",
+				"enableInboundPrivateEndpoint": "[steps('networking').inboundAccess.enablePE]",
+				"enableVNetIntegration": "[if(and(not(equals(steps('basics').hosting.hostingPlanType, 'Consumption')), steps('networking').vnetIntegration.enable), steps('networking').outboundAccess.enableVNetIntegration, false)]",
 				"functionAppInboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.peSubnet, '')]",
 				"functionAppOutboundSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').outboundAccess.enableVNetIntegration), steps('networking').outboundAccess.outboundSubnet, '')]",
-				"enableStoragePrivateEndpoints": "[if(and(steps('networking').networkInjection, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').storagePrivateEndpoints.enablePE, false)]",
+				"enableStoragePrivateEndpoints": "[if(and(steps('networking').vnetIntegration.enable, steps('networking').outboundAccess.enableVNetIntegration), steps('networking').storagePrivateEndpoints.enablePE, false)]",
 				"storagePrivateEndpointSubnetId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.peSubnet, '')]",
-				"vnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetName, '')]",
-				"networkingResourceGroupName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.networkingResourceGroup.value.name, '')]",
-				"vnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').networkInjection), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
+				"vnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').vnetIntegration.enable), steps('networking').virtualNetwork.vnetName, '')]",
+				"networkingResourceGroupName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').vnetIntegration.enable), steps('networking').virtualNetwork.networkingResourceGroup.value.name, '')]",
+				"vnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').vnetIntegration.enable), steps('networking').virtualNetwork.vnetAddressPrefix, '')]",
 				"functionAppInboundSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.subnetName, '')]",
 				"functionAppInboundSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.snetAddressPrefix, '')]",
 				"deployFunctionAppDnsZone": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').inboundAccess.enablePE), steps('networking').inboundAccess.deployPrivateDnsZone, false)]",
@@ -1343,7 +1775,7 @@
 				"storagePrivateEndpointSubnetName": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.subnetName, '')]",
 				"storagePrivateEndpointSubnetAddressPrefix": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.snetAddressPrefix, '')]",
 				"deployStoragePrivateDnsZones": "[if(and(steps('networking').virtualNetwork.newVNet, steps('networking').storagePrivateEndpoints.enablePE), steps('networking').storagePrivateEndpoints.deployPrivateDnsZone, false)]",
-				"functionAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), equals(steps('networking').publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
+				"functionAppPrivateDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), equals(steps('networking').inbound.publicAccess, false), steps('networking').inboundAccess.enablePE, steps('networking').inboundAccess.enablePrivateDNS), steps('networking').inboundAccess.privateDnsZone, '')]",
 				"storageBlobDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.blobPrivateDnsZone, '')]",
 				"storageFileDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
 				"storageQueueDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.queuePrivateDnsZone, '')]",

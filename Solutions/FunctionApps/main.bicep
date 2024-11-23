@@ -132,6 +132,29 @@ param logAnalyticsWorkspaceId string = ''
 @description('Optional. Indicates whether the function App should be accessible from the public network.')
 param enablePublicAccess bool = true
 
+@description('Optional. The network rules that are applied to inbound access for the function App.')
+param ipSecurityRestrictions array = []
+
+@description('Optional. Indicates what the default action is when an IP restriction rule is not matched.')
+@allowed([
+  'Allow'
+  'Deny'
+])
+param ipSecurityRestrictionsDefaultAction string = 'Allow'
+
+@description('Optional. The network rules that are applied to inbound access for the advanced (scm) website of the function app.')
+param scmIpSecurityRestrictions array = []
+
+@description('Optional. Indicates what the default action is when an IP restriction rule is not matched.')
+@allowed([
+  'Allow'
+  'Deny'
+])
+param scmIpSecurityRestrictionsDefaultAction string = 'Allow'
+
+@description('Optional. Determines whether the IP security restrictions for the scm site are the same as the main site.')
+param scmIpSecurityRestrictionsUseMain bool = true
+
 @description('Optional. Indicates whether the function App should be accessible via a private endpoint.')
 param enableInboundPrivateEndpoint bool = false
 
@@ -414,6 +437,11 @@ module functionAppResources 'modules/functionApp.bicep' = {
     functionAppPrivateDnsZoneId: enableInboundPrivateEndpoint ? ( deployNetworking && deployFunctionAppPrivateDnsZone ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, webSitePrivateDnsZoneName))) : functionAppPrivateDnsZoneId ) : ''
     hostingPlanType: deployHostingPlan ? hostingPlanType : existingHostingPlanType
     hostingPlanId: deployHostingPlan ? hostingPlan.outputs.hostingPlanId : hostingPlanId
+    ipSecurityRestrictions: ipSecurityRestrictions
+    ipSecurityRestrictionsDefaultAction: ipSecurityRestrictionsDefaultAction
+    scmIpSecurityRestrictions: scmIpSecurityRestrictions
+    scmIpSecurityRestrictionsDefaultAction: scmIpSecurityRestrictionsDefaultAction
+    scmIpSecurityRestrictionsUseMain: scmIpSecurityRestrictionsUseMain
     nameConvPrivEndpoints: nameConvPrivEndpoints
     privateLinkScopeResourceId: privateLinkScopeResourceId
     runtimeStack: runtimeStack
