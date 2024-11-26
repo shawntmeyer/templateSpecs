@@ -93,6 +93,19 @@
 							}
 						},
 						{
+							"type": "Microsoft.Common.ResourceGroupSelector",
+							"name": "functionAppResourceGroup",
+							"label": "Function App Resource Group",
+							"placeholder": "rg-<functionAppName>",
+							"allowedMode": "Both",
+							"required": false,
+							"scope": {
+								"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]",
+								"location": "[steps('basics').scope.location.name]"
+							},
+							"visible": true
+						},						
+						{
 							"name": "functionAppName",
 							"type": "Microsoft.Common.TextBox",
 							"label": "Function App Name",
@@ -112,20 +125,7 @@
 								]
 							},
 							"visible": true
-						},
-						{
-							"type": "Microsoft.Common.ResourceGroupSelector",
-							"name": "functionAppResourceGroup",
-							"label": "Function App Resource Group",
-							"placeholder": "rg-<functionAppName>",
-							"allowedMode": "Both",
-							"required": false,
-							"scope": {
-								"subscriptionId": "[steps('basics').scope.subscription.subscriptionId]",
-								"location": "[steps('basics').scope.location.name]"
-							},
-							"visible": true
-						},
+						},						
 						{
 							"name": "functionAppStacksApi",
 							"type": "Microsoft.Solutions.ArmApiControl",
