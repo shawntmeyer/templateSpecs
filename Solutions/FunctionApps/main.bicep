@@ -289,10 +289,23 @@ var existingHostingPlanType = !empty(existingHostingPlan) ? ( contains(existingH
 var blobContainerName =  ( deployHostingPlan && ( hostingPlanType == 'FlexConsumption' || ( hostingPlanType != 'AppServicePlan' && !addAzureFilesConnection ) ) ) || ( !deployHostingPlan && ( existingHostingPlanType == 'FlexConsumption' || ( existingHostingPlan != 'AppServicePlan' && !addAzureFilesConnection ) ) ) ? 'app-package-${toLower(functionAppName)}' : ''
 var fileShareName = (deployHostingPlan && (hostingPlanType == 'Consumption' || hostingPlanType == 'FunctionsPremium')) || (!deployHostingPlan && (existingHostingPlanType == 'Consumption' || existingHostingPlanType == 'FunctionsPremium')) ? ( addAzureFilesConnection ? toLower(functionAppName) : '' ) : ''
 
-var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
+//var locations = (loadJsonContent('../../data/locations.json'))[environment().name]
 var resourceAbbreviations = loadJsonContent('../../data/resourceAbbreviations.json')
 
-var nameConvPrivEndpoints = nameConvResTypeAtEnd ? 'RESOURCENAME-SERVICE-${locations[location].abbreviation}-${resourceAbbreviations.privateEndpoints}-VNET' : '${resourceAbbreviations.privateEndpoints}-RESOURCENAME-SERVICE-${locations[location].abbreviation}-VNET'
+var privateEndpointNameConv = replace(
+  nameConvResTypeAtEnd ? 'RESOURCENAME-SERVICE-VNET-RESOURCETYPE' : 'RESOURCETYPE-RESOURCENAME-SERVICE-VNET',
+  'RESOURCETYPE',
+  resourceAbbreviations.privateEndpoints
+)
+var privateEndpointNICNameConvTemp = nameConvResTypeAtEnd
+  ? '${privateEndpointNameConv}-RESOURCETYPE'
+  : 'RESOURCETYPE-${privateEndpointNameConv}'
+var privateEndpointNICNameConv = replace(
+  privateEndpointNICNameConvTemp,
+  'RESOURCETYPE',
+  resourceAbbreviations.networkInterfaces
+)
+
 var storageAccountSku = deployHostingPlan ? ( hostingPlanZoneRedundant ? 'Standard_ZRS' : 'Standard_LRS' ) : ( existingHostingPlan.properties.numberOfWorkers > 1 ? 'Standard_ZRS' : 'Standard_LRS' )
 
 var subnetOutbound = enableVnetIntegration ? [
@@ -403,7 +416,8 @@ module storageResources 'modules/storage.bicep' = {
     fileShareName: fileShareName
     hostPlanType: deployHostingPlan ? hostingPlanType : existingHostingPlanType
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-    nameConvPrivEndpoints: nameConvPrivEndpoints
+    privateEndpointNameConv: privateEndpointNameConv
+    privateEndpointNICNameConv: privateEndpointNICNameConv
     storageAccountId: storageAccountId
     storageAccountName: storageAccountName
     storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.subnetIds[1] : storagePrivateEndpointSubnetId  ) : ''
@@ -438,7 +452,8 @@ module functionAppResources 'modules/functionApp.bicep' = {
     scmIpSecurityRestrictions: scmIpSecurityRestrictions
     scmIpSecurityRestrictionsDefaultAction: scmIpSecurityRestrictionsDefaultAction
     scmIpSecurityRestrictionsUseMain: scmIpSecurityRestrictionsUseMain
-    nameConvPrivEndpoints: nameConvPrivEndpoints
+    privateEndpointNameConv: privateEndpointNameConv
+    privateEndpointNICNameConv: privateEndpointNICNameConv
     privateLinkScopeResourceId: privateLinkScopeResourceId
     runtimeStack: runtimeStack
     runtimeVersion: runtimeVersion

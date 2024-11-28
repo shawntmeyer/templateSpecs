@@ -18,9 +18,10 @@ param functionAppKind string
 param functionAppPrivateDnsZoneId string
 param logAnalyticsWorkspaceId string
 param maximumInstanceCount int
+param privateEndpointNameConv string
+param privateEndpointNICNameConv string
 param privateLinkScopeResourceId string
 param instanceMemoryMB int
-param nameConvPrivEndpoints string
 param runtimeVersion string
 param runtimeStack string
 param storageAccountResourceId string
@@ -189,6 +190,35 @@ var siteConfigNetworkRestrictions = {
     ? null
     : scmIpSecurityRestrictionsUseMain
 }
+var vnetName = !empty(functionAppInboundSubnetId) ? split(functionAppInboundSubnetId, '/')[8] : ''
+
+var privateEndpointName = length(replace(
+  replace(replace(privateEndpointNameConv, 'RESOURCENAME', functionAppName), 'SERVICE', 'sites'),
+  'VNET',
+  vnetName
+)) > 64 ? replace(
+  replace(replace(privateEndpointNameConv, 'RESOURCENAME', replace(functionAppName, '-', '')), 'SERVICE', 'sites'),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(replace(privateEndpointNameConv, 'RESOURCENAME', functionAppName), 'SERVICE', 'sites'),
+  'VNET',
+  vnetName
+)
+
+var privateEndpointNICName = length(replace(
+  replace(replace(privateEndpointNICNameConv, 'SERVICE', 'sites'), 'RESOURCENAME', functionAppName),
+  'VNET',
+  vnetName
+)) > 80 ? replace(
+  replace(replace(privateEndpointNICNameConv, 'SERVICE', 'sites'), 'RESOURCENAME', replace(functionAppName, '-', '')),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(replace(privateEndpointNICNameConv, 'SERVICE', 'sites'), 'RESOURCENAME', functionAppName),
+  'VNET',
+  vnetName
+)
 
 // resources
 
@@ -283,17 +313,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if (enableInboundPrivateEndpoint) {
-  name: replace(
-    replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', functionAppName), 'SERVICE', 'sites'),
-    'VNET',
-    split(functionAppInboundSubnetId, '/')[8]
-  )
+resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (enableInboundPrivateEndpoint) {
+  name: privateEndpointName
   location: location
   properties: {
+    customNetworkInterfaceName: privateEndpointNICName
     privateLinkServiceConnections: [
       {
-        name: 'pe-${functionAppName}-sites-connection'
+        name: privateEndpointName
         properties: {
           privateLinkServiceId: functionApp.id
           groupIds: ['sites']
@@ -308,7 +335,7 @@ resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02
 }
 
 resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if (enableInboundPrivateEndpoint && !empty(functionAppPrivateDnsZoneId)) {
-  name: '${functionApp_PrivateEndpoint.name}-group'
+  name: privateEndpointName
   parent: functionApp_PrivateEndpoint
   properties: {
     privateDnsZoneConfigs: [

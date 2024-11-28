@@ -5,7 +5,8 @@ param fileShareName string
 param hostPlanType string
 param location string
 param logAnalyticsWorkspaceId string
-param nameConvPrivEndpoints string
+param privateEndpointNameConv string
+param privateEndpointNICNameConv string
 param storageAccountId string
 param storageAccountName string
 param storageAccountPrivateEndpointSubnetId string
@@ -18,23 +19,56 @@ param tags object
 
 var storageAccountNameVar = deployStorageAccount ? storageAccountName : last(split(storageAccountId, '/'))
 var vnetName = !empty(storageAccountPrivateEndpointSubnetId) ? split(storageAccountPrivateEndpointSubnetId, '/')[8] : ''
+var privateEndpointName = length(replace(
+  replace(privateEndpointNameConv, 'RESOURCENAME', storageAccountName),
+  'VNET',
+  vnetName
+)) > 66 ? replace(
+  replace(privateEndpointNameConv, 'RESOURCENAME', replace(storageAccountNameVar, '-', '')),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(privateEndpointNameConv, 'RESOURCENAME', storageAccountNameVar),
+  'VNET',
+  vnetName
+)
+
+var privateEndpointNICName = length(replace(
+  replace(privateEndpointNICNameConv, 'RESOURCENAME', storageAccountNameVar),
+  'VNET',
+  vnetName
+)) > 82 ? replace(
+  replace(privateEndpointNICNameConv, 'RESOURCENAME', replace(storageAccountNameVar, '-', '')),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(privateEndpointNICNameConv, 'RESOURCENAME', storageAccountNameVar),
+  'VNET',
+  vnetName
+)
+
+
 var blobPE = !empty(storageBlobDnsZoneId) ? [{
-  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'blob'), 'VNET', vnetName)
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'blob')
+  name: replace(privateEndpointName, 'SERVICE', 'blob')
   privateDnsZoneId: storageBlobDnsZoneId
   service: 'blob'
 }] : []
 var filePE = !empty(storageFileDnsZoneId) ? [{
-  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'file'), 'VNET', vnetName)
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'file')
+  name: replace(privateEndpointName, 'SERVICE', 'file')
   privateDnsZoneId: storageFileDnsZoneId
   service: 'file'
 }] : []
 var queuePE = !empty(storageQueueDnsZoneId) ? [{
-  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'queue'), 'VNET', vnetName)
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'queue')
+  name: replace(privateEndpointName, 'SERVICE', 'queue')
   privateDnsZoneId: storageQueueDnsZoneId
   service: 'queue'
 }] : []
 var tablePE = !empty(storageTableDnsZoneId) ? [{
-  name: replace(replace(replace(nameConvPrivEndpoints, 'RESOURCENAME', storageAccountNameVar), 'SERVICE', 'table'), 'VNET', vnetName)
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'table')
+  name: replace(privateEndpointNICName, 'SERVICE', 'table')
   privateDnsZoneId: storageTableDnsZoneId
   service: 'table'
 }] : []
@@ -143,14 +177,15 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
   }
 }
 
-resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
+resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2023-05-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
   name: privateEndpoint.name
   location: location
   tags: tags[?'Microsoft.Network/privateEndpoints'] ?? {}
   properties: {
+    customNetworkInterfaceName: privateEndpoint.customNICName
     privateLinkServiceConnections: [
       {
-        name: '${privateEndpoint.name}-connection'
+        name: privateEndpoint.name
         properties: {
           privateLinkServiceId: deployStorageAccount ? storageAccount.id : existingStorageAccount.id
           groupIds: [privateEndpoint.service]          
@@ -164,7 +199,7 @@ resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@202
 }]
 
 resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints && !empty(storageAccountPrivateEndpoints[i].privateDnsZoneId)) {
-  name: '${privateEndpoint.name}-group'
+  name: privateEndpoint.name
   parent: storageAccount_privateEndpoints[i]
   properties: {
     privateDnsZoneConfigs: [
