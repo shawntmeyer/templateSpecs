@@ -25,7 +25,6 @@ param runtimeVersion string
 param runtimeStack string
 param storageAccountResourceId string
 param tags object
-param timestamp string
 
 // existing resources
 
@@ -204,15 +203,20 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (en
   tags: tags[?'Microsoft.Insights/components'] ?? {}
 }
 
+resource privateLinkScope 'Microsoft.Network/privateLinkServices@2020-11-01' existing = {
+  name: last(split(privateLinkScopeResourceId, '/'))
+  scope: resourceGroup(split(privateLinkScopeResourceId, '/')[2], split(privateLinkScopeResourceId, '/')[4])
+}
+
 module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if (enableApplicationInsights && !empty(privateLinkScopeResourceId)) {
-  name: 'PrivateLlinkScope-${timestamp}'
+  name: 'PrivateLinkScope-${uniqueString(deployment().name, location)}'
   scope: subscription()
   params: {
     privateLinkScopeResourceId: privateLinkScopeResourceId
     scopedResourceIds: [
       applicationInsights.id
     ]
-    timeStamp: timestamp
+    location: empty(privateLinkScopeResourceId) ? '' : privateLinkScope.location
   }
 }
 

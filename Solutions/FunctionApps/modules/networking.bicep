@@ -6,7 +6,6 @@ param vnetName string
 param vnetAddressPrefix string
 param subnets array
 param tags object
-param timestamp string
 
 resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
   location: location
@@ -29,7 +28,7 @@ resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for sub
 }]
 
 module privateDnsZones 'privateDnsZones.bicep' = if(!empty(privateDnsZoneNames)) {
-  name: 'privateDns-virtualNetworkLinks-${timestamp}'
+  name: 'privateDns-virtualNetworkLinks-${uniqueString(deployment().name, location)}'
   params: {
     privateDnsZoneNames: privateDnsZoneNames
     tags: tags

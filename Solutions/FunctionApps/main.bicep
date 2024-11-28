@@ -265,9 +265,6 @@ Must be provided in the following 'TagsByResource' format: (JSON)
 ''')
 param tags object = {}
 
-@description('Do not change. Used for deployment naming.')
-param timestamp string = utcNow('yyyyMMddhhmmss')
-
 // existing resources
 
 resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = if(!empty(hostingPlanId)) {
@@ -362,13 +359,12 @@ resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGrou
 }]
 
 module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
-  name: 'networking-resources-${timestamp}'
+  name: 'networking-resources-${uniqueString(deployment().name, location)}}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
     location: location
     privateDnsZoneNames: deployStoragePrivateDnsZones ? ( deployFunctionAppPrivateDnsZone ? union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName) : storagePrivateDnsZoneNames ) : ( deployFunctionAppPrivateDnsZone ? webSitePrivateDnsZoneName : [] )
     subnets: union(subnetOutbound, subnetStoragePrivateEndpoints, subnetInboundPrivateEndpoint)
-    timestamp: timestamp
     vnetName: vnetName
     vnetAddressPrefix: vnetAddressPrefix
     tags: tags
@@ -379,7 +375,7 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
 }
 
 module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
-  name: 'hostingPlan-${timestamp}'
+  name: 'hostingPlan-${uniqueString(deployment().name, location)}'
   scope: resourceGroup(resourceGroupNameHostingPlan)
   params: {
     functionAppKind: functionAppKind
@@ -397,7 +393,7 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
 }
 
 module storageResources 'modules/storage.bicep' = {
-  name: 'storage-resources-${timestamp}'
+  name: 'storage-resources-${uniqueString(deployment().name, location)}'
   scope: resourceGroup(resourceGroupNameStorage)
   params: {
     location: location
@@ -421,7 +417,7 @@ module storageResources 'modules/storage.bicep' = {
 }
 
 module functionAppResources 'modules/functionApp.bicep' = {
-  name: 'functionApp-resources-${timestamp}'
+  name: 'functionApp-resources-${uniqueString(deployment().name, location)}'
   scope: resourceGroup(functionAppResourceGroupName)
   params: {
     location: location
@@ -449,7 +445,6 @@ module functionAppResources 'modules/functionApp.bicep' = {
     storageAccountResourceId: storageResources.outputs.storageAccountResourceId   
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     tags: tags
-    timestamp: timestamp
     instanceMemoryMB: flexConsumptionInstanceMemoryMB
     maximumInstanceCount: flexConsumptionMaximumInstanceCount
   }
