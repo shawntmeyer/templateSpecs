@@ -364,6 +364,8 @@ var resourceGroupNames = [
   resourceGroupNameFunctionApp  
 ]
 
+var deploymentSuffix = uniqueString(deployment().name, location)
+
 // deployments
 
 resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNames, resourceGroupNames): {
@@ -372,7 +374,7 @@ resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGrou
 }]
 
 module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
-  name: 'networking-resources-${uniqueString(deployment().name, location)}'
+  name: 'networking-resources-${deploymentSuffix}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
     location: location
@@ -388,7 +390,7 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
 }
 
 module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
-  name: 'hostingPlan-${uniqueString(deployment().name, location)}'
+  name: 'hostingPlan-${deploymentSuffix}'
   scope: resourceGroup(resourceGroupNameHostingPlan)
   params: {
     functionAppKind: functionAppKind
@@ -406,7 +408,7 @@ module hostingPlan 'modules/hostingPlan.bicep' = if(deployHostingPlan) {
 }
 
 module storageResources 'modules/storage.bicep' = {
-  name: 'storage-resources-${uniqueString(deployment().name, location)}'
+  name: 'storage-resources-${deploymentSuffix}'
   scope: resourceGroup(resourceGroupNameStorage)
   params: {
     location: location
@@ -431,11 +433,12 @@ module storageResources 'modules/storage.bicep' = {
 }
 
 module functionAppResources 'modules/functionApp.bicep' = {
-  name: 'functionApp-resources-${uniqueString(deployment().name, location)}'
+  name: 'functionApp-resources-${deploymentSuffix}}'
   scope: resourceGroup(functionAppResourceGroupName)
   params: {
     location: location
     blobContainerName: blobContainerName
+    deploymentSuffix: deploymentSuffix
     enableApplicationInsights: enableApplicationInsights
     enablePublicAccess: enablePublicAccess
     enableInboundPrivateEndpoint: enableInboundPrivateEndpoint

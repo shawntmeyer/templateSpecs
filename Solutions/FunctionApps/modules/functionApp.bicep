@@ -1,4 +1,5 @@
 param blobContainerName string
+param deploymentSuffix string
 param enableApplicationInsights bool
 param enableInboundPrivateEndpoint bool
 param enablePublicAccess bool
@@ -233,11 +234,6 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (en
   tags: tags[?'Microsoft.Insights/components'] ?? {}
 }
 
-resource privateLinkScope 'Microsoft.Network/privateLinkServices@2020-11-01' existing =  if (!empty(privateLinkScopeResourceId)) {
-  name: last(split(privateLinkScopeResourceId, '/'))
-  scope: resourceGroup(split(privateLinkScopeResourceId, '/')[2], split(privateLinkScopeResourceId, '/')[4])
-}
-
 module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if (enableApplicationInsights && !empty(privateLinkScopeResourceId)) {
   name: 'PrivateLinkScope-${uniqueString(deployment().name, location)}'
   scope: subscription()
@@ -246,7 +242,7 @@ module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if (enableApplicati
     scopedResourceIds: [
       applicationInsights.id
     ]
-    location: empty(privateLinkScopeResourceId) ? '' : privateLinkScope.location
+    deploymentSuffix: deploymentSuffix
   }
 }
 
