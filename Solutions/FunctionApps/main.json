@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.31.92.45157",
-      "templateHash": "17656228496942359420"
+      "templateHash": "14450109932844677507"
     }
   },
   "parameters": {
@@ -499,7 +499,7 @@
       "condition": "[and(parameters('deployNetworking'), or(parameters('enableVnetIntegration'), parameters('enableInboundPrivateEndpoint')))]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
-      "name": "[format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))]",
+      "name": "[format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))]",
       "resourceGroup": "[variables('resourceGroupNameNetworking')]",
       "properties": {
         "expressionEvaluationOptions": {
@@ -856,12 +856,12 @@
           "storageAccountName": {
             "value": "[parameters('storageAccountName')]"
           },
-          "storageAccountPrivateEndpointSubnetId": "[if(parameters('enableStoragePrivateEndpoints'), if(parameters('deployNetworking'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.subnetIds.value[1]), createObject('value', parameters('storagePrivateEndpointSubnetId'))), createObject('value', ''))]",
+          "storageAccountPrivateEndpointSubnetId": "[if(parameters('enableStoragePrivateEndpoints'), if(parameters('deployNetworking'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.subnetIds.value[1]), createObject('value', parameters('storagePrivateEndpointSubnetId'))), createObject('value', ''))]",
           "storageAccountSku": "[if(parameters('deployHostingPlan'), if(parameters('hostingPlanZoneRedundant'), createObject('value', 'Standard_ZRS'), createObject('value', 'Standard_LRS')), if(greater(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', split(parameters('hostingPlanId'), '/')[2], split(parameters('hostingPlanId'), '/')[4]), 'Microsoft.Web/serverfarms', last(split(parameters('hostingPlanId'), '/'))), '2023-01-01').numberOfWorkers, 1), createObject('value', 'Standard_ZRS'), createObject('value', 'Standard_LRS')))]",
-          "storageBlobDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.blob.'))))), createObject('value', parameters('storageBlobDnsZoneId'))), createObject('value', ''))]",
-          "storageFileDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.file.'))))), createObject('value', parameters('storageFileDnsZoneId'))), createObject('value', ''))]",
-          "storageQueueDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.queue.'))))), createObject('value', parameters('storageQueueDnsZoneId'))), createObject('value', ''))]",
-          "storageTableDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.table.'))))), createObject('value', parameters('storageTableDnsZoneId'))), createObject('value', ''))]",
+          "storageBlobDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.blob.'))))), createObject('value', parameters('storageBlobDnsZoneId'))), createObject('value', ''))]",
+          "storageFileDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.file.'))))), createObject('value', parameters('storageFileDnsZoneId'))), createObject('value', ''))]",
+          "storageQueueDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.queue.'))))), createObject('value', parameters('storageQueueDnsZoneId'))), createObject('value', ''))]",
+          "storageTableDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.table.'))))), createObject('value', parameters('storageTableDnsZoneId'))), createObject('value', ''))]",
           "tags": {
             "value": "[parameters('tags')]"
           }
@@ -1179,7 +1179,7 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location'))))]"
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location'))))]"
       ]
     },
     {
@@ -1213,9 +1213,9 @@
           "functionAppName": {
             "value": "[parameters('functionAppName')]"
           },
-          "functionAppOutboundSubnetId": "[if(parameters('enableVnetIntegration'), if(parameters('deployNetworking'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.subnetIds.value[0]), createObject('value', parameters('functionAppOutboundSubnetId'))), createObject('value', ''))]",
-          "functionAppInboundSubnetId": "[if(parameters('enableInboundPrivateEndpoint'), if(parameters('deployNetworking'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.subnetIds.value[2]), createObject('value', parameters('functionAppInboundSubnetId'))), createObject('value', ''))]",
-          "functionAppPrivateDnsZoneId": "[if(parameters('enableInboundPrivateEndpoint'), if(and(parameters('deployNetworking'), parameters('deployFunctionAppPrivateDnsZone')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), variables('webSitePrivateDnsZoneName')))))), createObject('value', parameters('functionAppPrivateDnsZoneId'))), createObject('value', ''))]",
+          "functionAppOutboundSubnetId": "[if(parameters('enableVnetIntegration'), if(parameters('deployNetworking'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.subnetIds.value[0]), createObject('value', parameters('functionAppOutboundSubnetId'))), createObject('value', ''))]",
+          "functionAppInboundSubnetId": "[if(parameters('enableInboundPrivateEndpoint'), if(parameters('deployNetworking'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.subnetIds.value[2]), createObject('value', parameters('functionAppInboundSubnetId'))), createObject('value', ''))]",
+          "functionAppPrivateDnsZoneId": "[if(parameters('enableInboundPrivateEndpoint'), if(and(parameters('deployNetworking'), parameters('deployFunctionAppPrivateDnsZone')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), variables('webSitePrivateDnsZoneName')))))), createObject('value', parameters('functionAppPrivateDnsZoneId'))), createObject('value', ''))]",
           "hostingPlanType": "[if(parameters('deployHostingPlan'), createObject('value', parameters('hostingPlanType')), if(not(empty(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', split(parameters('hostingPlanId'), '/')[2], split(parameters('hostingPlanId'), '/')[4]), 'Microsoft.Web/serverfarms', last(split(parameters('hostingPlanId'), '/'))), '2023-01-01', 'full'))), if(contains(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', split(parameters('hostingPlanId'), '/')[2], split(parameters('hostingPlanId'), '/')[4]), 'Microsoft.Web/serverfarms', last(split(parameters('hostingPlanId'), '/'))), '2023-01-01', 'full').sku.tier, 'Flex'), createObject('value', 'FlexConsumption'), if(contains(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', split(parameters('hostingPlanId'), '/')[2], split(parameters('hostingPlanId'), '/')[4]), 'Microsoft.Web/serverfarms', last(split(parameters('hostingPlanId'), '/'))), '2023-01-01', 'full').sku.tier, 'Elastic'), createObject('value', 'FunctionsPremium'), if(equals(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', split(parameters('hostingPlanId'), '/')[2], split(parameters('hostingPlanId'), '/')[4]), 'Microsoft.Web/serverfarms', last(split(parameters('hostingPlanId'), '/'))), '2023-01-01', 'full').sku.tier, 'Dynamic'), createObject('value', 'Consumption'), createObject('value', 'AppServicePlan')))), createObject('value', '')))]",
           "hostingPlanId": "[if(parameters('deployHostingPlan'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameHostingPlan')), 'Microsoft.Resources/deployments', format('hostingPlan-{0}', uniqueString(deployment().name, parameters('location')))), '2022-09-01').outputs.hostingPlanId.value), createObject('value', parameters('hostingPlanId')))]",
           "ipSecurityRestrictions": {
@@ -1272,7 +1272,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.31.92.45157",
-              "templateHash": "3552857474428145944"
+              "templateHash": "12850390690181549501"
             }
           },
           "parameters": {
@@ -1433,6 +1433,7 @@
               "tags": "[coalesce(tryGet(parameters('tags'), 'Microsoft.Insights/components'), createObject())]"
             },
             "privateLinkScope": {
+              "condition": "[not(empty(parameters('privateLinkScopeResourceId')))]",
               "existing": true,
               "type": "Microsoft.Network/privateLinkServices",
               "apiVersion": "2020-11-01",
@@ -1711,7 +1712,7 @@
       },
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameHostingPlan')), 'Microsoft.Resources/deployments', format('hostingPlan-{0}', uniqueString(deployment().name, parameters('location'))))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}}}', uniqueString(deployment().name, parameters('location'))))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', uniqueString(deployment().name, parameters('location'))))]",
         "rgs",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameStorage')), 'Microsoft.Resources/deployments', format('storage-resources-{0}', uniqueString(deployment().name, parameters('location'))))]"
       ]

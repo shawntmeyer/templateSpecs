@@ -372,7 +372,7 @@ resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGrou
 }]
 
 module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
-  name: 'networking-resources-${uniqueString(deployment().name, location)}}'
+  name: 'networking-resources-${uniqueString(deployment().name, location)}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
     location: location

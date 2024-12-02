@@ -233,7 +233,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (en
   tags: tags[?'Microsoft.Insights/components'] ?? {}
 }
 
-resource privateLinkScope 'Microsoft.Network/privateLinkServices@2020-11-01' existing = {
+resource privateLinkScope 'Microsoft.Network/privateLinkServices@2020-11-01' existing =  if (!empty(privateLinkScopeResourceId)) {
   name: last(split(privateLinkScopeResourceId, '/'))
   scope: resourceGroup(split(privateLinkScopeResourceId, '/')[2], split(privateLinkScopeResourceId, '/')[4])
 }
