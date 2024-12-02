@@ -235,7 +235,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (en
 }
 
 module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if (enableApplicationInsights && !empty(privateLinkScopeResourceId)) {
-  name: 'PrivateLinkScope-${uniqueString(deployment().name, location)}'
+  name: 'PrivateLinkScope-${deploymentSuffix}'
   scope: subscription()
   params: {
     privateLinkScopeResourceId: privateLinkScopeResourceId

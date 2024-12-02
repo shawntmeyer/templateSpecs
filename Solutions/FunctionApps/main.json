@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.31.92.45157",
-      "templateHash": "7716077787378771303"
+      "templateHash": "10467441805311829811"
     }
   },
   "parameters": {
@@ -508,6 +508,9 @@
         },
         "mode": "Incremental",
         "parameters": {
+          "deploymentSuffix": {
+            "value": "[variables('deploymentSuffix')]"
+          },
           "location": {
             "value": "[parameters('location')]"
           },
@@ -532,10 +535,13 @@
             "_generator": {
               "name": "bicep",
               "version": "0.31.92.45157",
-              "templateHash": "10110989535071959642"
+              "templateHash": "12701717183676434035"
             }
           },
           "parameters": {
+            "deploymentSuffix": {
+              "type": "string"
+            },
             "location": {
               "type": "string"
             },
@@ -589,7 +595,7 @@
               "condition": "[not(empty(parameters('privateDnsZoneNames')))]",
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2022-09-01",
-              "name": "[format('privateDns-virtualNetworkLinks-{0}', uniqueString(deployment().name, parameters('location')))]",
+              "name": "[format('privateDns-virtualNetworkLinks-{0}', parameters('deploymentSuffix'))]",
               "properties": {
                 "expressionEvaluationOptions": {
                   "scope": "inner"
@@ -1186,7 +1192,7 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
-      "name": "[format('functionApp-resources-{0}}}', variables('deploymentSuffix'))]",
+      "name": "[format('functionApp-resources-{0}', variables('deploymentSuffix'))]",
       "resourceGroup": "[parameters('functionAppResourceGroupName')]",
       "properties": {
         "expressionEvaluationOptions": {
@@ -1276,7 +1282,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.31.92.45157",
-              "templateHash": "2909648862346423918"
+              "templateHash": "4618966727643571315"
             }
           },
           "parameters": {
@@ -1539,7 +1545,7 @@
               "condition": "[and(parameters('enableApplicationInsights'), not(empty(parameters('privateLinkScopeResourceId'))))]",
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2022-09-01",
-              "name": "[format('PrivateLinkScope-{0}', uniqueString(deployment().name, parameters('location')))]",
+              "name": "[format('PrivateLinkScope-{0}', parameters('deploymentSuffix'))]",
               "subscriptionId": "[subscription().subscriptionId]",
               "location": "[resourceGroup().location]",
               "properties": {

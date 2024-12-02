@@ -377,6 +377,7 @@ module networking 'modules/networking.bicep' = if(deployNetworking && (enableVne
   name: 'networking-resources-${deploymentSuffix}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
+    deploymentSuffix: deploymentSuffix
     location: location
     privateDnsZoneNames: deployStoragePrivateDnsZones ? ( deployFunctionAppPrivateDnsZone ? union(storagePrivateDnsZoneNames, webSitePrivateDnsZoneName) : storagePrivateDnsZoneNames ) : ( deployFunctionAppPrivateDnsZone ? webSitePrivateDnsZoneName : [] )
     subnets: union(subnetOutbound, subnetStoragePrivateEndpoints, subnetInboundPrivateEndpoint)
