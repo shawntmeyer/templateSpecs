@@ -433,7 +433,7 @@ module storageResources 'modules/storage.bicep' = {
 }
 
 module functionAppResources 'modules/functionApp.bicep' = {
-  name: 'functionApp-resources-${deploymentSuffix}}'
+  name: 'functionApp-resources-${deploymentSuffix}'
   scope: resourceGroup(functionAppResourceGroupName)
   params: {
     location: location
