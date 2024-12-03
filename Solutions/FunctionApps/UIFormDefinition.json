@@ -1583,50 +1583,7 @@
 				{
 					"name": "monitoring",
 					"label": "Monitoring",
-					"elements": [
-						{
-							"name": "diagnostics",
-							"type": "Microsoft.Common.Section",
-							"label": "Diagnostics",
-							"elements": [
-								{
-									"name": "diagnosticsIntro",
-									"type": "Microsoft.Common.TextBlock",
-									"visible": true,
-									"options": {
-										"text": "Most resources in Azure have the ability to send diagnostic log and metrics to a log analytic workspace for retrieval and analysis. To enable diagnostic collection from the resources deployed, select the log analytics workspace below. Leave it empty to disable log and metric collection."
-									}
-								},
-								{
-									"name": "enableDiagnostics",
-									"type": "Microsoft.Common.OptionsGroup",
-									"label": "Enable Diagnostic Settings",
-									"defaultValue": "Yes",
-									"toolTip": "Choose 'Yes' to enable diagnostic settings.",
-									"constraints": {
-										"allowedValues": [
-											{
-												"label": "Yes",
-												"value": true
-											},
-											{
-												"label": "No",
-												"value": false
-											}
-										]
-									}
-								},
-								{
-									"name": "logAnalyticsWorkspace",
-									"type": "Microsoft.Solutions.ResourceSelector",
-									"label": "Log Analytics Workspace",
-									"resourceType": "Microsoft.OperationalInsights/workspaces",
-									"toolTip": "The log analytics workspace to where diagnostic logs are sent.",
-									"visible": "[steps('monitoring').diagnostics.enableDiagnostics]"
-								}
-							],
-							"visible": true
-						},
+					"elements": [						
 						{
 							"name": "appInsights",
 							"type": "Microsoft.Common.Section",
@@ -1662,6 +1619,15 @@
 											}
 										]
 									}
+								},
+								{
+									"name": "logAnalyticsWorkspace",
+									"type": "Microsoft.Solutions.ResourceSelector",
+									"label": "Log Analytics Workspace",
+									"resourceType": "Microsoft.OperationalInsights/workspaces",
+									"required": true,
+									"toolTip": "The log analytics workspace to where diagnostic logs are sent.",
+									"visible": "[steps('monitoring').appInsights.enableApplicationInsights]"
 								},
 								{
 									"name": "privateLinkTextBlock1",
@@ -1768,8 +1734,8 @@
 				"storageFileDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.filePrivateDnsZone, '')]",
 				"storageQueueDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.queuePrivateDnsZone, '')]",
 				"storageTableDnsZoneId": "[if(and(equals(steps('networking').virtualNetwork.newVNet, false), steps('networking').storagePrivateEndpoints.enablePE, steps('networking').storagePrivateEndpoints.enablePrivateDNS), steps('networking').storagePrivateEndpoints.tablePrivateDnsZone, '')]",
-				"logAnalyticsWorkspaceId": "[if(equals(steps('monitoring').diagnostics.enableDiagnostics, true), steps('monitoring').diagnostics.logAnalyticsWorkspace.id, '')]",
 				"enableApplicationInsights": "[steps('monitoring').appInsights.enableApplicationInsights]",
+				"logAnalyticsWorkspaceId": "[if(equals(steps('monitoring').appInsights.enableApplicationInsights, true), steps('monitoring').appInsights.logAnalyticsWorkspace.id, '')]",
 				"privateLinkScopeResourceId": "[if(steps('monitoring').appInsights.privateLink, steps('monitoring').appInsights.azureMonitorPrivateLinkScope.id, '')]",
 				"tags": "[steps('tags').tags]"
 			}
