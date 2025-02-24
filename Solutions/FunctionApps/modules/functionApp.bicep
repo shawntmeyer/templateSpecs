@@ -1,4 +1,5 @@
 param blobContainerName string
+param deploymentSuffix string
 param enableApplicationInsights bool
 param enableInboundPrivateEndpoint bool
 param enablePublicAccess bool
@@ -7,17 +8,34 @@ param functionAppName string
 param functionAppOutboundSubnetId string
 param hostingPlanId string?
 param hostingPlanType string
+param ipSecurityRestrictions array
+param ipSecurityRestrictionsDefaultAction string
+param scmIpSecurityRestrictions array
+param scmIpSecurityRestrictionsDefaultAction string
+param scmIpSecurityRestrictionsUseMain bool
 param location string
+param fileShareName string
 param functionAppKind string
 param functionAppPrivateDnsZoneId string
 param logAnalyticsWorkspaceId string
 param maximumInstanceCount int
+param privateEndpointNameConv string
+param privateEndpointNICNameConv string
+param privateLinkScopeResourceId string
 param instanceMemoryMB int
-param nameConvPrivEndpoints string
 param runtimeVersion string
 param runtimeStack string
 param storageAccountResourceId string
 param tags object
+
+// existing resources
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
+  name: last(split(storageAccountResourceId, '/'))
+  scope: resourceGroup(split(storageAccountResourceId, '/')[2], split(storageAccountResourceId, '/')[4])
+}
+
+// variables
 
 var functionsWorkerRuntime = runtimeVersion == '.NET Framework 4.8' || contains(runtimeVersion, 'Isolated')
   ? '${runtimeStack}-isolated'
@@ -34,16 +52,45 @@ var linuxRuntimeStack = contains(functionsWorkerRuntime, 'dotnet')
           ? 'PowerShell'
           : runtimeStack == 'python' ? 'Python' : runtimeStack == 'java' ? 'Java' : null
 
-var storageConnection = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+var noFileShareAppSettings = [
+  {
+    name: 'AzureWebJobsStorage__blobServiceUri'
+    value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
+  }
+  {
+    name: 'AzureWebJobsStorage__credential'
+    value: 'managedidentity'
+  }
+  {
+    name: 'AzureWebJobsStorage__queueServiceUri'
+    value: 'https://${storageAccount.name}.queue.${environment().suffixes.storage}'
+  }
+  {
+    name: 'AzureWebJobsStorage__tableServiceUri'
+    value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
+  }
+  {
+    name: 'FUNCTIONS_EXTENSION_VERSION'
+    value: '~4'
+  }
+  {
+    name: 'FUNCTIONS_WORKER_RUNTIME'
+    value: functionsWorkerRuntime
+  }
+  {
+    name: 'WEBSITE_LOAD_USER_PROFILE'
+    value: '1'
+  }
+]
 
-var commonAppSettings = [
+var fileShareAppSettings = [
   {
     name: 'AzureWebJobsStorage'
-    value: storageConnection
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
   }
   {
     name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-    value: storageConnection
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
   }
   {
     name: 'WEBSITE_CONTENTSHARE'
@@ -58,7 +105,6 @@ var commonAppSettings = [
     value: functionsWorkerRuntime
   }
 ]
-
 var appInsightsAppSettings = enableApplicationInsights
   ? [
       {
@@ -130,12 +176,52 @@ var flexAppSettings = environment().name == 'AzureCloud'
 
 var appSettings = hostingPlanType == 'FlexConsumption'
   ? union(flexAppSettings, appInsightsAppSettings)
-  : union(commonAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings)
+  : (empty(fileShareName)
+      ? union(noFileShareAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings)
+      : union(fileShareAppSettings, appInsightsAppSettings, isolatedAppSettings, windowsAppSettings))
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
-  name: last(split(storageAccountResourceId, '/'))
-  scope: resourceGroup(split(storageAccountResourceId, '/')[2], split(storageAccountResourceId, '/')[4])
+var siteConfigNetworkRestrictions = {
+  ipSecurityRestrictions: empty(ipSecurityRestrictions) ? null : ipSecurityRestrictions
+  ipSecurityRestrictionsDefaultAction: empty(ipSecurityRestrictions) ? null : ipSecurityRestrictionsDefaultAction
+  scmIpSecurityRestrictions: empty(scmIpSecurityRestrictions) ? null : scmIpSecurityRestrictions
+  scmIpSecurityRestrictionsDefaultAction: empty(scmIpSecurityRestrictions)
+    ? null
+    : scmIpSecurityRestrictionsDefaultAction
+  scmIpSecurityRestrictionsUseMain: empty(ipSecurityRestrictions) && empty(scmIpSecurityRestrictions)
+    ? null
+    : scmIpSecurityRestrictionsUseMain
 }
+var vnetName = !empty(functionAppInboundSubnetId) ? split(functionAppInboundSubnetId, '/')[8] : ''
+
+var privateEndpointName = length(replace(
+  replace(replace(privateEndpointNameConv, 'RESOURCENAME', functionAppName), 'SERVICE', 'sites'),
+  'VNET',
+  vnetName
+)) > 64 ? replace(
+  replace(replace(privateEndpointNameConv, 'RESOURCENAME', replace(functionAppName, '-', '')), 'SERVICE', 'sites'),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(replace(privateEndpointNameConv, 'RESOURCENAME', functionAppName), 'SERVICE', 'sites'),
+  'VNET',
+  vnetName
+)
+
+var privateEndpointNICName = length(replace(
+  replace(replace(privateEndpointNICNameConv, 'SERVICE', 'sites'), 'RESOURCENAME', functionAppName),
+  'VNET',
+  vnetName
+)) > 80 ? replace(
+  replace(replace(privateEndpointNICNameConv, 'SERVICE', 'sites'), 'RESOURCENAME', replace(functionAppName, '-', '')),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(replace(privateEndpointNICNameConv, 'SERVICE', 'sites'), 'RESOURCENAME', functionAppName),
+  'VNET',
+  vnetName
+)
+
+// resources
 
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (enableApplicationInsights) {
   name: '${functionAppName}-insights'
@@ -148,9 +234,21 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (en
   tags: tags[?'Microsoft.Insights/components'] ?? {}
 }
 
+module updatePrivateLinkScope 'get-PrivateLinkScope.bicep' = if (enableApplicationInsights && !empty(privateLinkScopeResourceId)) {
+  name: 'PrivateLinkScope-${deploymentSuffix}'
+  scope: subscription()
+  params: {
+    privateLinkScopeResourceId: privateLinkScopeResourceId
+    scopedResourceIds: [
+      applicationInsights.id
+    ]
+    deploymentSuffix: deploymentSuffix
+  }
+}
+
 resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   name: functionAppName
-  identity: hostingPlanType == 'FlexConsumption'
+  identity: empty(fileShareName) || hostingPlanType == 'FlexConsumption'
     ? {
         type: 'SystemAssigned'
       }
@@ -184,40 +282,41 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
     serverFarmId: !empty(hostingPlanId) ? hostingPlanId : null
     siteConfig: hostingPlanType == 'FlexConsumption'
-      ? {
-          appSettings: appSettings
-        }
-      : {
-          appSettings: appSettings
-          linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
-          netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet')
-            ? 'v${decimalRuntimeVersion}'
-            : null
-        }
+      ? union(
+          {
+            appSettings: appSettings
+          },
+          siteConfigNetworkRestrictions
+        )
+      : union(
+          {
+            appSettings: appSettings
+            linuxFxVersion: contains(functionAppKind, 'linux') ? '${linuxRuntimeStack}|${decimalRuntimeVersion}' : null
+            netFrameworkVersion: !contains(functionAppKind, 'linux') && contains(runtimeStack, 'dotnet')
+              ? 'v${decimalRuntimeVersion}'
+              : null
+          },
+          siteConfigNetworkRestrictions
+        )
     virtualNetworkSubnetId: !empty(functionAppOutboundSubnetId) ? functionAppOutboundSubnetId : null
-    vnetImagePullEnabled: hostingPlanType == 'FlexConsumption'
+    vnetImagePullEnabled: hostingPlanType == 'FlexConsumption' || hostingPlanType == 'Consumption'
       ? null
       : !empty(functionAppOutboundSubnetId) ? true : false
-    vnetContentShareEnabled: hostingPlanType == 'FlexConsumption'
-      ? null
-      : !empty(functionAppOutboundSubnetId) ? true : false
-    vnetRouteAllEnabled: hostingPlanType == 'FlexConsumption'
+    vnetContentShareEnabled: empty(fileShareName) ? null : !empty(functionAppOutboundSubnetId) ? true : false
+    vnetRouteAllEnabled: hostingPlanType == 'FlexConsumption' || hostingPlanType == 'Consumption'
       ? null
       : !empty(functionAppOutboundSubnetId) ? true : false
   }
 }
 
-resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02-01' = if (enableInboundPrivateEndpoint) {
-  name: replace(
-    replace(replace(nameConvPrivEndpoints, 'resourceName', functionAppName), 'service', 'sites'),
-    '-uniqueString',
-    uniqueString(functionAppInboundSubnetId)
-  )
+resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (enableInboundPrivateEndpoint) {
+  name: privateEndpointName
   location: location
   properties: {
+    customNetworkInterfaceName: privateEndpointNICName
     privateLinkServiceConnections: [
       {
-        name: 'pe-${functionAppName}-sites-connection'
+        name: privateEndpointName
         properties: {
           privateLinkServiceId: functionApp.id
           groupIds: ['sites']
@@ -225,23 +324,21 @@ resource functionApp_PrivateEndpoint 'Microsoft.Network/privateEndpoints@2021-02
       }
     ]
     subnet: {
-      id: !empty(functionAppInboundSubnetId) ? functionAppInboundSubnetId : null
+      id: functionAppInboundSubnetId
     }
   }
   tags: tags[?'Microsoft.Network/privateEndpoints'] ?? {}
 }
 
-resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if (enableInboundPrivateEndpoint) {
-  name: '${functionApp_PrivateEndpoint.name}-group'
+resource functionApp_PrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = if (enableInboundPrivateEndpoint && !empty(functionAppPrivateDnsZoneId)) {
+  name: privateEndpointName
   parent: functionApp_PrivateEndpoint
   properties: {
     privateDnsZoneConfigs: [
       {
-        name: !empty(functionAppPrivateDnsZoneId) ? '${last(split(functionAppPrivateDnsZoneId, '/'))}-config' : null
+        name: !empty(functionAppPrivateDnsZoneId) ? '${last(split(functionAppPrivateDnsZoneId, '/'))}-config' : ''
         properties: {
-          privateDnsZoneId: enablePublicAccess || empty(functionAppPrivateDnsZoneId)
-            ? null
-            : functionAppPrivateDnsZoneId
+          privateDnsZoneId: functionAppPrivateDnsZoneId
         }
       }
     ]
@@ -268,15 +365,13 @@ resource functionApp_diagnosticsSettings 'Microsoft.Insights/diagnosticSettings@
   scope: functionApp
 }
 
-var storageRoleDefinitionId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b' //Storage Blob Data Owner role
-
 // Allow access from function app to storage account using a managed identity
-module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' = if (hostingPlanType == 'FlexConsumption') {
+module storageBlobDataOwnerRoleAssignment 'roleAssignment-storageAccount.bicep' = if (empty(fileShareName) || hostingPlanType == 'FlexConsumption') {
   name: 'roleAssignment-storageAccount'
   scope: resourceGroup(split(storageAccountResourceId, '/')[2], split(storageAccountResourceId, '/')[4])
   params: {
     principalId: functionApp.identity.principalId
     storageAccountResourceId: storageAccountResourceId
-    roleDefinitionId: storageRoleDefinitionId
+    roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor role
   }
 }

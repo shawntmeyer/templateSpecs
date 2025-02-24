@@ -1,12 +1,12 @@
 targetScope = 'resourceGroup'
 
+param deploymentSuffix string
 param location string
 param privateDnsZoneNames array
 param vnetName string
 param vnetAddressPrefix string
 param subnets array
 param tags object
-param timestamp string
 
 resource vnet 'Microsoft.Network/virtualNetworks@2022-05-01' = {
   location: location
@@ -28,8 +28,8 @@ resource snets 'Microsoft.Network/virtualNetworks/subnets@2022-05-01' = [for sub
   properties: subnet.properties
 }]
 
-module privateDnsZones 'privateDnsZones.bicep' = {
-  name: 'privateDns-virtualNetworkLinks-${timestamp}'
+module privateDnsZones 'privateDnsZones.bicep' = if(!empty(privateDnsZoneNames)) {
+  name: 'privateDns-virtualNetworkLinks-${deploymentSuffix}'
   params: {
     privateDnsZoneNames: privateDnsZoneNames
     tags: tags

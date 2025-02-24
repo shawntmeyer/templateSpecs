@@ -2,10 +2,11 @@ param containerName string
 param deployStorageAccount bool
 param enableStoragePrivateEndpoints bool
 param fileShareName string
-param hostPlanType string?
+param hostPlanType string
 param location string
 param logAnalyticsWorkspaceId string
-param nameConvPrivEndpoints string
+param privateEndpointNameConv string
+param privateEndpointNICNameConv string
 param storageAccountId string
 param storageAccountName string
 param storageAccountPrivateEndpointSubnetId string
@@ -17,28 +18,61 @@ param storageTableDnsZoneId string
 param tags object
 
 var storageAccountNameVar = deployStorageAccount ? storageAccountName : last(split(storageAccountId, '/'))
-var storageAccountPrivateEndpoints = enableStoragePrivateEndpoints ? [
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'blob'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
-    privateDnsZoneId: storageBlobDnsZoneId 
-    service: 'blob'
-  }
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'file'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
-    privateDnsZoneId: storageFileDnsZoneId
-    service: 'file'
-  }
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'queue'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
-    privateDnsZoneId: storageQueueDnsZoneId
-    service: 'queue'
-  }
-  {
-    name: replace(replace(replace(nameConvPrivEndpoints, 'resourceName', storageAccountNameVar), 'service', 'table'), '-uniqueString', '.${uniqueString(storageAccountPrivateEndpointSubnetId)}')
-    privateDnsZoneId: storageTableDnsZoneId
-    service: 'table'
-  }
-] : []
+var vnetName = !empty(storageAccountPrivateEndpointSubnetId) ? split(storageAccountPrivateEndpointSubnetId, '/')[8] : ''
+var privateEndpointName = length(replace(
+  replace(privateEndpointNameConv, 'RESOURCENAME', storageAccountName),
+  'VNET',
+  vnetName
+)) > 66 ? replace(
+  replace(privateEndpointNameConv, 'RESOURCENAME', replace(storageAccountNameVar, '-', '')),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(privateEndpointNameConv, 'RESOURCENAME', storageAccountNameVar),
+  'VNET',
+  vnetName
+)
+
+var privateEndpointNICName = length(replace(
+  replace(privateEndpointNICNameConv, 'RESOURCENAME', storageAccountNameVar),
+  'VNET',
+  vnetName
+)) > 82 ? replace(
+  replace(privateEndpointNICNameConv, 'RESOURCENAME', replace(storageAccountNameVar, '-', '')),
+  'VNET',
+  replace(vnetName, '-', '')
+) : replace(
+  replace(privateEndpointNICNameConv, 'RESOURCENAME', storageAccountNameVar),
+  'VNET',
+  vnetName
+)
+
+
+var blobPE = !empty(storageBlobDnsZoneId) ? [{
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'blob')
+  name: replace(privateEndpointName, 'SERVICE', 'blob')
+  privateDnsZoneId: storageBlobDnsZoneId
+  service: 'blob'
+}] : []
+var filePE = !empty(storageFileDnsZoneId) ? [{
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'file')
+  name: replace(privateEndpointName, 'SERVICE', 'file')
+  privateDnsZoneId: storageFileDnsZoneId
+  service: 'file'
+}] : []
+var queuePE = !empty(storageQueueDnsZoneId) ? [{
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'queue')
+  name: replace(privateEndpointName, 'SERVICE', 'queue')
+  privateDnsZoneId: storageQueueDnsZoneId
+  service: 'queue'
+}] : []
+var tablePE = !empty(storageTableDnsZoneId) ? [{
+  customNICName: replace(privateEndpointNICName, 'SERVICE', 'table')
+  name: replace(privateEndpointNICName, 'SERVICE', 'table')
+  privateDnsZoneId: storageTableDnsZoneId
+  service: 'table'
+}] : []
+var storageAccountPrivateEndpoints = enableStoragePrivateEndpoints && !empty(vnetName) ? union(blobPE, filePE, queuePE, tablePE) : []
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(deployStorageAccount) {
   name: storageAccountNameVar
@@ -53,7 +87,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
     allowBlobPublicAccess: false
     allowedCopyScope: 'PrivateLink'
     allowCrossTenantReplication: false
-    allowSharedKeyAccess: false
+    allowSharedKeyAccess: hostPlanType != 'AppServicePlan' && hostPlanType != 'FlexConsumption' ? true : false
     defaultToOAuthAuthentication: false
     encryption: {
       keySource: 'Microsoft.Storage'
@@ -75,12 +109,12 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
     }
     largeFileSharesState: 'Enabled'
     minimumTlsVersion: 'TLS1_2'
-    networkAcls: {
+    networkAcls: enableStoragePrivateEndpoints ? {
       bypass: 'AzureServices'
       defaultAction: 'Deny'
       ipRules: []
       virtualNetworkRules: []
-    }
+    } : null
     publicNetworkAccess: enableStoragePrivateEndpoints ? 'Disabled' : 'Enabled'
     sasPolicy: {
       expirationAction: 'Log'
@@ -90,13 +124,12 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = if(depl
   resource blobServices 'blobServices' = {
     name: 'default'    
   }
-  resource fileServices 'fileServices' = {
+  resource fileServices 'fileServices' = if(!empty(fileShareName)) {
     name: 'default'
-  }
-  
+  }  
 }
 
-resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(deployStorageAccount && hostPlanType != 'FlexConsumption') {
+resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(deployStorageAccount && !empty(fileShareName)) {
   name: fileShareName
   parent: storageAccount::fileServices
   properties: {
@@ -105,7 +138,7 @@ resource shareNewAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@
   }
 }
 
-resource blobContainerNewAccount 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = if (deployStorageAccount && hostPlanType == 'FlexConsumption') {
+resource blobContainerNewAccount 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = if (deployStorageAccount && !empty(containerName)) {
   name: containerName
   parent: storageAccount::blobServices
   properties: {
@@ -117,12 +150,12 @@ resource existingStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' e
   name: storageAccountNameVar
 }
 
-resource fileServicesExistingAccount 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType != 'FlexConsumption') {
+resource fileServicesExistingAccount 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(fileShareName)) {
   name: 'default'
   parent: existingStorageAccount
 }
 
-resource fileShareExistingAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType != 'FlexConsumption') {
+resource fileShareExistingAccount 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(fileShareName)) {
   name: fileShareName
   parent: fileServicesExistingAccount
   properties: {
@@ -131,12 +164,12 @@ resource fileShareExistingAccount 'Microsoft.Storage/storageAccounts/fileService
   }
 }
 
-resource blobServicesExistingAccount 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType == 'FlexConsumption') {
+resource blobServicesExistingAccount 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(containerName)) {
   name: 'default'
   parent: existingStorageAccount
 }
 
-resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && hostPlanType == 'FlexConsumption') {
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if(!deployStorageAccount && !empty(storageAccountId) && !empty(containerName)) {
   name: containerName
   parent: blobServicesExistingAccount
   properties: {
@@ -144,14 +177,15 @@ resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@20
   }
 }
 
-resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2021-02-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
+resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@2023-05-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
   name: privateEndpoint.name
   location: location
   tags: tags[?'Microsoft.Network/privateEndpoints'] ?? {}
   properties: {
+    customNetworkInterfaceName: privateEndpoint.customNICName
     privateLinkServiceConnections: [
       {
-        name: '${privateEndpoint.name}-connection'
+        name: privateEndpoint.name
         properties: {
           privateLinkServiceId: deployStorageAccount ? storageAccount.id : existingStorageAccount.id
           groupIds: [privateEndpoint.service]          
@@ -164,13 +198,13 @@ resource storageAccount_privateEndpoints 'Microsoft.Network/privateEndpoints@202
   }
 }]
 
-resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints) {
-  name: '${privateEndpoint.name}-group'
+resource storageAccount_PrivateDnsZoneGroups 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-06-01' = [for (privateEndpoint, i) in storageAccountPrivateEndpoints: if(enableStoragePrivateEndpoints && !empty(storageAccountPrivateEndpoints[i].privateDnsZoneId)) {
+  name: privateEndpoint.name
   parent: storageAccount_privateEndpoints[i]
   properties: {
     privateDnsZoneConfigs: [
       {
-        name: '${last(split(privateEndpoint.privateDnsZoneId, '/'))}-config'
+        name: !empty(privateEndpoint.privateDnsZoneId) ? '${last(split(privateEndpoint.privateDnsZoneId, '/'))}-config' : ''
         properties: {
           privateDnsZoneId: privateEndpoint.privateDnsZoneId
         }
