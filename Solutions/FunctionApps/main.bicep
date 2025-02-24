@@ -10,8 +10,13 @@ param nameConvResTypeAtEnd bool = false
 @description('Required. The name of the function App.')
 param functionAppName string
 
-@description('Required. The name of the resource group where the function App will be deployed.')
-param functionAppResourceGroupName string
+@description('''Required. An object containing the name of the resource group where the function App will be deployed and whether it is an existing or New resource group.
+{
+  name: string
+  mode: New | Existing
+}
+''')
+param functionAppResourceGroup object
 
 @description('Optional. The type of site to deploy')
 @allowed([
@@ -73,8 +78,13 @@ param hostingPlanId string = ''
 @description('Conditional. The name of the service plan used by the function App. Required when "deployHostingPlan" is set to true.')
 param hostingPlanName string = ''
 
-@description('Conditional. The name of the resource Group where the hosting plan will be deployed. Required when "deployHostingPlan" is set to true.')
-param hostingPlanResourceGroupName string = ''
+@description('''Conditional. And object containing the name of the resource Group and creation mode for the hosting plan. Required when "deployHostingPlan" is set to true.
+{
+  name: string
+  mode: New | Existing
+}
+''')
+param hostingPlanResourceGroup object = {}
 
 @description('Conditional. The hosting plan pricing plan. Required when "deployHostingPlan" is set to true and hostingPlanType is not set to "Consumption".')
 @allowed([
@@ -130,7 +140,7 @@ param logAnalyticsWorkspaceId string = ''
 // Networking
 
 @description('Optional. Indicates whether the function App should be accessible from the public network.')
-param enablePublicAccess bool = true
+param enablePublicAccess bool = false
 
 @description('Optional. The network rules that are applied to inbound access for the function App.')
 param ipSecurityRestrictions array = []
@@ -140,7 +150,7 @@ param ipSecurityRestrictions array = []
   'Allow'
   'Deny'
 ])
-param ipSecurityRestrictionsDefaultAction string = 'Allow'
+param ipSecurityRestrictionsDefaultAction string = 'Deny'
 
 @description('Optional. The network rules that are applied to inbound access for the advanced (scm) website of the function app.')
 param scmIpSecurityRestrictions array = []
@@ -186,8 +196,13 @@ param storagePrivateEndpointSubnetId string = ''
 @description('Conditional. The name of the virtual network used for Virtual Network Integration. Required when "enableVnetIntegration" is set to true and "deployNetworking" = true.')
 param vnetName string = ''
 
-@description('Conditional. The name of the resource group where the virtual network is deployed. Required when "enableVnetIntegration" is set to true and "deployNetworking" = true.')
-param networkingResourceGroupName string = ''
+@description('''Conditional. An object containing the name and mode of creation of the resource group where the virtual network is deployed. Required when "enableVnetIntegration" is set to true and "deployNetworking" = true.
+{
+  name: string
+  mode: New | Existing
+}
+''')
+param networkingResourceGroup object = {}
 
 @description('Optional. The address prefix of the virtual network used Virtual Network Integration.')
 param vnetAddressPrefix string = '10.0.0.0/16'
@@ -273,8 +288,15 @@ resource existingHostingPlan 'Microsoft.Web/serverfarms@2023-01-01' existing = i
 }
 
 // variables
-
 var cloudSuffix = replace(replace(environment().resourceManager, 'https://management.', ''), '/', '')
+var deployResourceGroupNames = [
+  !empty(functionAppResourceGroup) && functionAppResourceGroup.mode == 'New' ? functionAppResourceGroup.name : ''
+  !empty(hostingPlanResourceGroup) && hostingPlanResourceGroup.mode == 'New' ? hostingPlanResourceGroup.name : ''
+  !empty(networkingResourceGroup) && networkingResourceGroup.mode == 'New' ? networkingResourceGroup.name : ''
+]
+
+var deploymentSuffix = uniqueString(deployment().name, location)
+
 var privateDnsZoneSuffixes_AzureWebSites = {
   AzureCloud: 'azurewebsites.net'
   AzureUSGovernment: 'azurewebsites.us'
@@ -353,27 +375,19 @@ var storagePrivateDnsZoneNames =  enableStoragePrivateEndpoints ? [
 ] : []
 
 // ensure that no resource Group Names are blank for deployments
-var resourceGroupNameFunctionApp = functionAppResourceGroupName
-var resourceGroupNameStorage = !empty(storageAccountId) && !deployStorageAccount ? split(storageAccountId, '/')[4] : resourceGroupNameFunctionApp
-var resourceGroupNameHostingPlan = !empty(hostingPlanResourceGroupName) ? hostingPlanResourceGroupName : resourceGroupNameFunctionApp
-var resourceGroupNameNetworking = !empty(networkingResourceGroupName) ? networkingResourceGroupName : resourceGroupNameFunctionApp
 
-var resourceGroupNames = [
-  resourceGroupNameNetworking
-  resourceGroupNameHostingPlan
-  resourceGroupNameFunctionApp  
-]
-
-var deploymentSuffix = uniqueString(deployment().name, location)
+var resourceGroupNameStorage = !empty(storageAccountId) && !deployStorageAccount ? split(storageAccountId, '/')[4] : functionAppResourceGroup.name
+var resourceGroupNameHostingPlan = !empty(hostingPlanResourceGroup) ? hostingPlanResourceGroup.name : functionAppResourceGroup.name
+var resourceGroupNameNetworking = !empty(networkingResourceGroup) ? networkingResourceGroup.name : functionAppResourceGroup.name
 
 // deployments
 
-resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for resourceGroupName in union(resourceGroupNames, resourceGroupNames): {
-  name: resourceGroupName
+resource rgs 'Microsoft.Resources/resourceGroups@2023-07-01' = [for rgName in deployResourceGroupNames: if(!empty(rgName)) {
+  name: rgName
   location: location
 }]
 
-module networking 'modules/networking.bicep' = if(deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint)) {
+module networking 'modules/networking.bicep' = if(deployNetworking && (deployStoragePrivateDnsZones || deployFunctionAppPrivateDnsZone || enableVnetIntegration || enableInboundPrivateEndpoint)) {
   name: 'networking-resources-${deploymentSuffix}'
   scope: resourceGroup(resourceGroupNameNetworking)
   params: {
@@ -423,7 +437,7 @@ module storageResources 'modules/storage.bicep' = {
     privateEndpointNICNameConv: privateEndpointNICNameConv
     storageAccountId: storageAccountId
     storageAccountName: storageAccountName
-    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( deployNetworking ? networking.outputs.subnetIds[1] : storagePrivateEndpointSubnetId  ) : ''
+    storageAccountPrivateEndpointSubnetId: enableStoragePrivateEndpoints ? ( deployNetworking && (enableVnetIntegration || enableInboundPrivateEndpoint) ? networking.outputs.subnetIds[1] : storagePrivateEndpointSubnetId  ) : ''
     storageAccountSku: storageAccountSku 
     storageBlobDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.blob.'))) : storageBlobDnsZoneId ) : ''
     storageFileDnsZoneId: enableStoragePrivateEndpoints ? ( deployNetworking && deployStoragePrivateDnsZones ? first(filter(networking.outputs.privateDnsZoneIds, zone => contains(zone, '.file.'))) : storageFileDnsZoneId ) : ''
@@ -435,7 +449,7 @@ module storageResources 'modules/storage.bicep' = {
 
 module functionAppResources 'modules/functionApp.bicep' = {
   name: 'functionApp-resources-${deploymentSuffix}'
-  scope: resourceGroup(functionAppResourceGroupName)
+  scope: resourceGroup(functionAppResourceGroup.name)
   params: {
     location: location
     blobContainerName: blobContainerName
@@ -469,7 +483,5 @@ module functionAppResources 'modules/functionApp.bicep' = {
   }
   dependsOn: [
     rgs
-    hostingPlan
-    networking
   ]
 }

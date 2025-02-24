@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.31.92.45157",
-      "templateHash": "10467441805311829811"
+      "version": "0.33.93.31351",
+      "templateHash": "5939508672848044627"
     }
   },
   "parameters": {
@@ -28,10 +28,10 @@
         "description": "Required. The name of the function App."
       }
     },
-    "functionAppResourceGroupName": {
-      "type": "string",
+    "functionAppResourceGroup": {
+      "type": "object",
       "metadata": {
-        "description": "Required. The name of the resource group where the function App will be deployed."
+        "description": "Required. An object containing the name of the resource group where the function App will be deployed and whether it is an existing or New resource group.\n{\n  name: string\n  mode: New | Existing\n}\n"
       }
     },
     "functionAppKind": {
@@ -119,11 +119,11 @@
         "description": "Conditional. The name of the service plan used by the function App. Required when \"deployHostingPlan\" is set to true."
       }
     },
-    "hostingPlanResourceGroupName": {
-      "type": "string",
-      "defaultValue": "",
+    "hostingPlanResourceGroup": {
+      "type": "object",
+      "defaultValue": {},
       "metadata": {
-        "description": "Conditional. The name of the resource Group where the hosting plan will be deployed. Required when \"deployHostingPlan\" is set to true."
+        "description": "Conditional. And object containing the name of the resource Group and creation mode for the hosting plan. Required when \"deployHostingPlan\" is set to true.\n{\n  name: string\n  mode: New | Existing\n}\n"
       }
     },
     "hostingPlanPricing": {
@@ -212,7 +212,7 @@
     },
     "enablePublicAccess": {
       "type": "bool",
-      "defaultValue": true,
+      "defaultValue": false,
       "metadata": {
         "description": "Optional. Indicates whether the function App should be accessible from the public network."
       }
@@ -226,7 +226,7 @@
     },
     "ipSecurityRestrictionsDefaultAction": {
       "type": "string",
-      "defaultValue": "Allow",
+      "defaultValue": "Deny",
       "allowedValues": [
         "Allow",
         "Deny"
@@ -323,11 +323,11 @@
         "description": "Conditional. The name of the virtual network used for Virtual Network Integration. Required when \"enableVnetIntegration\" is set to true and \"deployNetworking\" = true."
       }
     },
-    "networkingResourceGroupName": {
-      "type": "string",
-      "defaultValue": "",
+    "networkingResourceGroup": {
+      "type": "object",
+      "defaultValue": {},
       "metadata": {
-        "description": "Conditional. The name of the resource group where the virtual network is deployed. Required when \"enableVnetIntegration\" is set to true and \"deployNetworking\" = true."
+        "description": "Conditional. An object containing the name and mode of creation of the resource group where the virtual network is deployed. Required when \"enableVnetIntegration\" is set to true and \"deployNetworking\" = true.\n{\n  name: string\n  mode: New | Existing\n}\n"
       }
     },
     "vnetAddressPrefix": {
@@ -459,6 +459,12 @@
       "workspaces": "vdws"
     },
     "cloudSuffix": "[replace(replace(environment().resourceManager, 'https://management.', ''), '/', '')]",
+    "deployResourceGroupNames": [
+      "[if(and(not(empty(parameters('functionAppResourceGroup'))), equals(parameters('functionAppResourceGroup').mode, 'New')), parameters('functionAppResourceGroup').name, '')]",
+      "[if(and(not(empty(parameters('hostingPlanResourceGroup'))), equals(parameters('hostingPlanResourceGroup').mode, 'New')), parameters('hostingPlanResourceGroup').name, '')]",
+      "[if(and(not(empty(parameters('networkingResourceGroup'))), equals(parameters('networkingResourceGroup').mode, 'New')), parameters('networkingResourceGroup').name, '')]"
+    ],
+    "deploymentSuffix": "[uniqueString(deployment().name, parameters('location'))]",
     "privateDnsZoneSuffixes_AzureWebSites": {
       "AzureCloud": "azurewebsites.net",
       "AzureUSGovernment": "azurewebsites.us",
@@ -474,30 +480,24 @@
     "subnetStoragePrivateEndpoints": "[if(parameters('enableStoragePrivateEndpoints'), createArray(createObject('name', parameters('storagePrivateEndpointSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'addressPrefix', parameters('storagePrivateEndpointSubnetAddressPrefix')))), createArray())]",
     "subnetInboundPrivateEndpoint": "[if(parameters('enableInboundPrivateEndpoint'), createArray(createObject('name', parameters('functionAppInboundSubnetName'), 'properties', createObject('privateEndpointNetworkPolicies', 'Disabled', 'addressPrefix', parameters('functionAppInboundSubnetAddressPrefix')))), createArray())]",
     "storagePrivateDnsZoneNames": "[if(parameters('enableStoragePrivateEndpoints'), createArray(format('privatelink.blob.{0}', environment().suffixes.storage), format('privatelink.file.{0}', environment().suffixes.storage), format('privatelink.queue.{0}', environment().suffixes.storage), format('privatelink.table.{0}', environment().suffixes.storage)), createArray())]",
-    "resourceGroupNameFunctionApp": "[parameters('functionAppResourceGroupName')]",
-    "resourceGroupNameStorage": "[if(and(not(empty(parameters('storageAccountId'))), not(parameters('deployStorageAccount'))), split(parameters('storageAccountId'), '/')[4], variables('resourceGroupNameFunctionApp'))]",
-    "resourceGroupNameHostingPlan": "[if(not(empty(parameters('hostingPlanResourceGroupName'))), parameters('hostingPlanResourceGroupName'), variables('resourceGroupNameFunctionApp'))]",
-    "resourceGroupNameNetworking": "[if(not(empty(parameters('networkingResourceGroupName'))), parameters('networkingResourceGroupName'), variables('resourceGroupNameFunctionApp'))]",
-    "resourceGroupNames": [
-      "[variables('resourceGroupNameNetworking')]",
-      "[variables('resourceGroupNameHostingPlan')]",
-      "[variables('resourceGroupNameFunctionApp')]"
-    ],
-    "deploymentSuffix": "[uniqueString(deployment().name, parameters('location'))]"
+    "resourceGroupNameStorage": "[if(and(not(empty(parameters('storageAccountId'))), not(parameters('deployStorageAccount'))), split(parameters('storageAccountId'), '/')[4], parameters('functionAppResourceGroup').name)]",
+    "resourceGroupNameHostingPlan": "[if(not(empty(parameters('hostingPlanResourceGroup'))), parameters('hostingPlanResourceGroup').name, parameters('functionAppResourceGroup').name)]",
+    "resourceGroupNameNetworking": "[if(not(empty(parameters('networkingResourceGroup'))), parameters('networkingResourceGroup').name, parameters('functionAppResourceGroup').name)]"
   },
   "resources": [
     {
       "copy": {
         "name": "rgs",
-        "count": "[length(union(variables('resourceGroupNames'), variables('resourceGroupNames')))]"
+        "count": "[length(variables('deployResourceGroupNames'))]"
       },
+      "condition": "[not(empty(variables('deployResourceGroupNames')[copyIndex()]))]",
       "type": "Microsoft.Resources/resourceGroups",
       "apiVersion": "2023-07-01",
-      "name": "[union(variables('resourceGroupNames'), variables('resourceGroupNames'))[copyIndex()]]",
+      "name": "[variables('deployResourceGroupNames')[copyIndex()]]",
       "location": "[parameters('location')]"
     },
     {
-      "condition": "[and(parameters('deployNetworking'), or(parameters('enableVnetIntegration'), parameters('enableInboundPrivateEndpoint')))]",
+      "condition": "[and(parameters('deployNetworking'), or(or(or(parameters('deployStoragePrivateDnsZones'), parameters('deployFunctionAppPrivateDnsZone')), parameters('enableVnetIntegration')), parameters('enableInboundPrivateEndpoint')))]",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "[format('networking-resources-{0}', variables('deploymentSuffix'))]",
@@ -534,8 +534,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.92.45157",
-              "templateHash": "12701717183676434035"
+              "version": "0.33.93.31351",
+              "templateHash": "9760147518138704976"
             }
           },
           "parameters": {
@@ -618,8 +618,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.31.92.45157",
-                      "templateHash": "10682769902782451491"
+                      "version": "0.33.93.31351",
+                      "templateHash": "2879679281105353887"
                     }
                   },
                   "parameters": {
@@ -742,8 +742,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.92.45157",
-              "templateHash": "4501866862127807748"
+              "version": "0.33.93.31351",
+              "templateHash": "16420560769150186989"
             }
           },
           "parameters": {
@@ -863,7 +863,7 @@
           "storageAccountName": {
             "value": "[parameters('storageAccountName')]"
           },
-          "storageAccountPrivateEndpointSubnetId": "[if(parameters('enableStoragePrivateEndpoints'), if(parameters('deployNetworking'), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', variables('deploymentSuffix'))), '2022-09-01').outputs.subnetIds.value[1]), createObject('value', parameters('storagePrivateEndpointSubnetId'))), createObject('value', ''))]",
+          "storageAccountPrivateEndpointSubnetId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), or(parameters('enableVnetIntegration'), parameters('enableInboundPrivateEndpoint'))), createObject('value', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', variables('deploymentSuffix'))), '2022-09-01').outputs.subnetIds.value[1]), createObject('value', parameters('storagePrivateEndpointSubnetId'))), createObject('value', ''))]",
           "storageAccountSku": "[if(parameters('deployHostingPlan'), if(parameters('hostingPlanZoneRedundant'), createObject('value', 'Standard_ZRS'), createObject('value', 'Standard_LRS')), if(greater(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', split(parameters('hostingPlanId'), '/')[2], split(parameters('hostingPlanId'), '/')[4]), 'Microsoft.Web/serverfarms', last(split(parameters('hostingPlanId'), '/'))), '2023-01-01').numberOfWorkers, 1), createObject('value', 'Standard_ZRS'), createObject('value', 'Standard_LRS')))]",
           "storageBlobDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', variables('deploymentSuffix'))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.blob.'))))), createObject('value', parameters('storageBlobDnsZoneId'))), createObject('value', ''))]",
           "storageFileDnsZoneId": "[if(parameters('enableStoragePrivateEndpoints'), if(and(parameters('deployNetworking'), parameters('deployStoragePrivateDnsZones')), createObject('value', first(filter(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('resourceGroupNameNetworking')), 'Microsoft.Resources/deployments', format('networking-resources-{0}', variables('deploymentSuffix'))), '2022-09-01').outputs.privateDnsZoneIds.value, lambda('zone', contains(lambdaVariables('zone'), '.file.'))))), createObject('value', parameters('storageFileDnsZoneId'))), createObject('value', ''))]",
@@ -879,8 +879,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.92.45157",
-              "templateHash": "5323884478491822608"
+              "version": "0.33.93.31351",
+              "templateHash": "9559480336999367876"
             }
           },
           "parameters": {
@@ -1193,7 +1193,7 @@
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2022-09-01",
       "name": "[format('functionApp-resources-{0}', variables('deploymentSuffix'))]",
-      "resourceGroup": "[parameters('functionAppResourceGroupName')]",
+      "resourceGroup": "[parameters('functionAppResourceGroup').name]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -1281,8 +1281,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.31.92.45157",
-              "templateHash": "4618966727643571315"
+              "version": "0.33.93.31351",
+              "templateHash": "15706037737966909494"
             }
           },
           "parameters": {
@@ -1572,8 +1572,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.31.92.45157",
-                      "templateHash": "11496087517562629719"
+                      "version": "0.33.93.31351",
+                      "templateHash": "9473658001731009165"
                     }
                   },
                   "parameters": {
@@ -1613,8 +1613,8 @@
                           "metadata": {
                             "_generator": {
                               "name": "bicep",
-                              "version": "0.31.92.45157",
-                              "templateHash": "7172663132659946173"
+                              "version": "0.33.93.31351",
+                              "templateHash": "4675715586097635005"
                             }
                           },
                           "parameters": {
@@ -1678,8 +1678,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.31.92.45157",
-                      "templateHash": "14352523563939232109"
+                      "version": "0.33.93.31351",
+                      "templateHash": "12174036764166879540"
                     }
                   },
                   "parameters": {
